@@ -37,6 +37,7 @@ export default function RegisterScreen() {
       name: name || 'New User',
       email: email || 'user@medassist.com',
       phone: phone,
+      role: 'PATIENT',
       language: 'en',
       allergies: [],
       chronicConditions: [],

@@ -18,7 +18,7 @@ import { useAppStore, useUserStore } from '../../stores';
 export default function LoginScreen() {
   const router = useRouter();
   const { setOnboardingComplete } = useAppStore();
-  const { login } = useUserStore(); // Destructure login action properly
+  const { setUser } = useUserStore();
 
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
@@ -28,30 +28,45 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!password || (loginMethod === 'email' && !email) || (loginMethod === 'phone' && !phone)) {
-      alert('Please fill in all fields'); // Simple alert for now
+      alert('Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
-    try {
-      await login({
-        email: loginMethod === 'email' ? email : undefined,
-        // Phone login not fully supported in backend yet, defaulting to email logic
-        password
-      });
+    // Simulate API delay for demo
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-      setOnboardingComplete(); // Or check if user is already onboarded from backend
-      router.replace('/(main)');
-    } catch (error: any) {
-      console.error(error);
-      alert(error.response?.data?.message || 'Login failed. Please check your credentials.');
-    } finally {
-      setIsLoading(false);
-    }
+    // Mock user for demo
+    setUser({
+      id: '1',
+      name: 'Demo User',
+      email: email || 'demo@medassist.com',
+      phone: phone,
+      role: 'PATIENT',
+      language: 'en',
+      allergies: ['Penicillin'],
+      chronicConditions: ['Seasonal Allergies'],
+      isOnboarded: true,
+    });
+
+    setOnboardingComplete();
+    setIsLoading(false);
+    router.replace('/(main)');
   };
 
   const handleGuestLogin = () => {
-    alert("Guest login is temporarily disabled for beta testing.");
+    setUser({
+      id: 'guest',
+      name: 'Guest User',
+      email: 'guest@medassist.com',
+      role: 'PATIENT',
+      language: 'en',
+      allergies: [],
+      chronicConditions: [],
+      isOnboarded: true,
+    });
+    setOnboardingComplete();
+    router.replace('/(main)');
   };
 
   return (

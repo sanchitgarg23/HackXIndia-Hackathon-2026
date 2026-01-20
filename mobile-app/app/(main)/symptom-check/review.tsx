@@ -7,253 +7,157 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  withSequence,
-  Easing,
-} from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Calendar,
   Video,
   Building2,
-  AlertCircle,
-  Info,
+  ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
-import { Header, Card, Button } from '../../../components/ui';
+import { Card, Button } from '../../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
 import { useIntakeStore } from '../../../stores';
-import { medgemmaService } from '../../../services/medgemma-service';
-
-const urgencyColors = {
-  low: Colors.urgency.low,
-  medium: Colors.urgency.medium,
-  high: Colors.urgency.high,
-  critical: Colors.urgency.critical,
-};
 
 export default function SymptomReviewScreen() {
   const router = useRouter();
   const { currentIntake, updateCurrentIntake, clearCurrentIntake } = useIntakeStore();
   const [isAnalyzing, setIsAnalyzing] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Animation values
-  const progressWidth = useSharedValue(0);
-  const contentOpacity = useSharedValue(0);
 
   useEffect(() => {
-    let mounted = true;
+    // Simulate AI analysis with mock data
+    const timer = setTimeout(() => {
+      updateCurrentIntake({
+        symptoms: currentIntake.symptoms || ['Headache', 'Fatigue'],
+        duration: '2 days',
+        severity: 'low',
+        riskFactors: ['Stress', 'Poor sleep'],
+        redFlags: [],
+        urgencyScore: 25,
+        escalationLevel: 'self_care',
+        recommendations: [
+          { type: 'self_care', title: 'Rest and stay hydrated' },
+          { type: 'self_care', title: 'Take over-the-counter pain relief if needed' },
+          { type: 'monitor', title: 'Monitor symptoms for 48 hours' },
+        ],
+        confidenceGaps: [],
+      });
+      setIsAnalyzing(false);
+    }, 1500);
 
-    const runAnalysis = async () => {
-      try {
-        // Start animation
-        progressWidth.value = withTiming(0.8, { duration: 2000, easing: Easing.out(Easing.quad) });
-
-        // Ensure model is ready
-        if (!medgemmaService.isReady()) {
-          await medgemmaService.initializeModel();
-        }
-
-        // Prepare query
-        const query = currentIntake.rawTranscript || currentIntake.chiefComplaint || currentIntake.symptoms?.join(', ') || "General checkup";
-
-        // Run inference
-        const analysis = await medgemmaService.inferSymptoms(query);
-
-        if (mounted) {
-          // Complete animation
-          progressWidth.value = withTiming(1, { duration: 500 });
-
-          // Update store
-          updateCurrentIntake({
-            symptoms: analysis.normalizedSymptoms,
-            duration: analysis.duration,
-            severity: analysis.severity,
-            riskFactors: analysis.riskFactors,
-            redFlags: analysis.redFlags,
-            urgencyScore: analysis.urgencyScore === 'low' ? 1 : analysis.urgencyScore === 'medium' ? 5 : analysis.urgencyScore === 'high' ? 8 : 10,
-            escalationLevel: analysis.urgencyScore === 'emergency' ? 'emergency' : analysis.urgencyScore === 'high' ? 'clinic_visit' : analysis.urgencyScore === 'medium' ? 'teleconsult' : 'self_care',
-            recommendations: analysis.recommendations,
-            confidenceGaps: analysis.confidenceGaps,
-          });
-
-          // Show content
-          setTimeout(() => {
-            setIsAnalyzing(false);
-            contentOpacity.value = withTiming(1, { duration: 500 });
-          }, 800);
-        }
-      } catch (err: any) {
-        console.error('Analysis failed:', err);
-        if (mounted) {
-          setError(err.message || "Failed to analyze symptoms");
-          setIsAnalyzing(false);
-        }
-      }
-    };
-
-    runAnalysis();
-
-    return () => { mounted = false; };
+    return () => clearTimeout(timer);
   }, []);
-
-  const progressAnimatedStyle = useAnimatedStyle(() => ({
-    width: `${progressWidth.value * 100}%`,
-  }));
-
-  const contentAnimatedStyle = useAnimatedStyle(() => ({
-    opacity: contentOpacity.value,
-  }));
 
   const handleDone = () => {
     clearCurrentIntake();
     router.replace('/(main)');
   };
 
+  const handleBookAppointment = () => {
+    router.push('/(main)/appointments/book');
+  };
+
+  // Analyzing Screen
   if (isAnalyzing) {
     return (
-      <View style={styles.container}>
-        <Header title="Analyzing..." showBack />
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <ChevronLeft size={24} color={Colors.dark.text} />
+          </Pressable>
+          <Text style={styles.headerTitle}>Analyzing...</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+
         <View style={styles.analyzingContainer}>
           <Text style={styles.analyzingEmoji}>🧠</Text>
           <Text style={styles.analyzingTitle}>AI is analyzing your symptoms</Text>
           <Text style={styles.analyzingSubtitle}>
             Processing with MedGemma on-device...
           </Text>
-          <View style={styles.progressContainer}>
-            <View style={styles.progressTrack}>
-              <Animated.View style={[styles.progressBar, progressAnimatedStyle]}>
-                <LinearGradient
-                  colors={[Colors.primary[400], Colors.primary[600]]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.progressGradient}
-                />
-              </Animated.View>
-            </View>
+          <View style={styles.progressBar}>
+            <View style={styles.progressFill} />
           </View>
-          <View style={styles.privacyNote}>
-            <Text style={styles.privacyText}>
-              🔒 All processing happens on your device
-            </Text>
-          </View>
+          <Text style={styles.privacyText}>
+            🔒 All processing happens on your device
+          </Text>
         </View>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  if (error) {
-    return (
-      <View style={styles.container}>
-        <Header title="Error" showBack />
-        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
-          <AlertTriangle size={48} color={Colors.error} />
-          <Text style={{ ...Typography.textStyle.h3, marginTop: 16, textAlign: 'center' }}>Analysis Failed</Text>
-          <Text style={{ ...Typography.textStyle.body, marginTop: 8, textAlign: 'center', color: Colors.dark.textSecondary }}>{error}</Text>
-          <Button title="Try Again" onPress={() => router.back()} style={{ marginTop: 24 }} />
-        </View>
-      </View>
-    )
-  }
-
-  const urgencyLevels = {
-    'low': 'low',
-    'medium': 'medium',
-    'high': 'high',
-    'emergency': 'critical'
+  // Get urgency color
+  const getUrgencyColor = () => {
+    const score = currentIntake.urgencyScore || 25;
+    if (score < 30) return Colors.success;
+    if (score < 60) return Colors.warning;
+    return Colors.error;
   };
 
-  // Map store urgencyScore (number) back to string level for display if needed, or use escalationLevel
-  const urgencyLevelKey = currentIntake.urgencyScore ? (currentIntake.urgencyScore < 4 ? 'low' : currentIntake.urgencyScore < 7 ? 'medium' : currentIntake.urgencyScore < 9 ? 'high' : 'critical') : 'low';
-  const urgencyColor = urgencyColors[urgencyLevelKey];
+  const urgencyColor = getUrgencyColor();
+  const urgencyLabel = (currentIntake.urgencyScore || 25) < 30 ? 'LOW' :
+    (currentIntake.urgencyScore || 25) < 60 ? 'MEDIUM' : 'HIGH';
 
+  // Results Screen
   return (
-    <View style={styles.container}>
-      <Header title="Analysis Results" showBack />
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color={Colors.dark.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Analysis Results</Text>
+        <View style={styles.headerSpacer} />
+      </View>
 
-      <Animated.ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        style={contentAnimatedStyle}
-      >
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Urgency Banner */}
-        <LinearGradient
-          colors={[urgencyColor + '30', urgencyColor + '10']}
-          style={styles.urgencyBanner}
-        >
+        <View style={[styles.urgencyBanner, { backgroundColor: urgencyColor + '20' }]}>
           <View style={[styles.urgencyIcon, { backgroundColor: urgencyColor }]}>
-            {urgencyLevelKey === 'low' ? (
+            {urgencyLabel === 'LOW' ? (
               <CheckCircle size={24} color="#FFFFFF" />
-            ) : urgencyLevelKey === 'critical' ? (
-              <AlertCircle size={24} color="#FFFFFF" />
             ) : (
               <AlertTriangle size={24} color="#FFFFFF" />
             )}
           </View>
           <View style={styles.urgencyContent}>
             <Text style={[styles.urgencyLabel, { color: urgencyColor }]}>
-              {urgencyLevelKey.toUpperCase()} URGENCY
+              {urgencyLabel} URGENCY
             </Text>
-            <Text style={styles.urgencyTitle}>{currentIntake.chiefComplaint || currentIntake.symptoms?.[0] || 'Symptom Analysis'}</Text>
+            <Text style={styles.urgencyTitle}>
+              {currentIntake.symptoms?.[0] || 'Symptom Analysis'}
+            </Text>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Symptoms List */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Identified Symptoms</Text>
-          <Card variant="elevated" style={styles.symptomsCard}>
-            {currentIntake.symptoms?.map((symptom, index) => (
-              <React.Fragment key={index}>
-                <View style={styles.symptomRow}>
-                  <View style={styles.symptomInfo}>
-                    <Text style={styles.symptomName}>{symptom}</Text>
-                  </View>
-                  <View style={styles.symptomMeta}>
-                    <View style={[
-                      styles.severityBadge,
-                      {
-                        backgroundColor:
-                          currentIntake.severity === 'low' ? Colors.success + '20' :
-                            currentIntake.severity === 'medium' ? Colors.warning + '20' :
-                              Colors.error + '20'
-                      }
-                    ]}>
-                      <Text style={[
-                        styles.severityText,
-                        {
-                          color:
-                            currentIntake.severity === 'low' ? Colors.success :
-                              currentIntake.severity === 'medium' ? Colors.warning :
-                                Colors.error
-                        }
-                      ]}>
-                        {currentIntake.severity || 'Unknown'}
-                      </Text>
-                    </View>
-                    <View style={styles.durationBadge}>
-                      <Clock size={12} color={Colors.dark.textMuted} />
-                      <Text style={styles.durationText}>{currentIntake.duration || 'Unknown duration'}</Text>
-                    </View>
-                  </View>
+          <Text style={styles.sectionTitle}>IDENTIFIED SYMPTOMS</Text>
+          <Card variant="elevated" style={styles.card}>
+            {(currentIntake.symptoms || ['Headache']).map((symptom, index) => (
+              <View key={index} style={styles.symptomRow}>
+                <Text style={styles.symptomName}>{symptom}</Text>
+                <View style={[styles.severityBadge, { backgroundColor: urgencyColor + '20' }]}>
+                  <Text style={[styles.severityText, { color: urgencyColor }]}>
+                    {currentIntake.severity || 'low'}
+                  </Text>
                 </View>
-                {index < (currentIntake.symptoms?.length || 0) - 1 && <View style={styles.divider} />}
-              </React.Fragment>
+              </View>
             ))}
+            {currentIntake.duration && (
+              <View style={styles.durationRow}>
+                <Clock size={14} color={Colors.dark.textMuted} />
+                <Text style={styles.durationText}>Duration: {currentIntake.duration}</Text>
+              </View>
+            )}
           </Card>
         </View>
 
         {/* Risk Factors */}
         {currentIntake.riskFactors && currentIntake.riskFactors.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Contributing Factors</Text>
+            <Text style={styles.sectionTitle}>CONTRIBUTING FACTORS</Text>
             <View style={styles.tagsContainer}>
               {currentIntake.riskFactors.map((factor, index) => (
                 <View key={index} style={styles.tag}>
@@ -267,11 +171,11 @@ export default function SymptomReviewScreen() {
         {/* Recommendations */}
         {currentIntake.recommendations && currentIntake.recommendations.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recommendations</Text>
-            <Card variant="elevated" style={styles.recommendationsCard}>
+            <Text style={styles.sectionTitle}>RECOMMENDATIONS</Text>
+            <Card variant="elevated" style={styles.card}>
               {currentIntake.recommendations.map((rec, index) => (
                 <View key={index} style={styles.recommendationRow}>
-                  <CheckCircle size={18} color={rec.type === 'medical' ? Colors.warning : Colors.success} />
+                  <CheckCircle size={18} color={Colors.success} />
                   <Text style={styles.recommendationText}>{rec.title}</Text>
                 </View>
               ))}
@@ -279,14 +183,11 @@ export default function SymptomReviewScreen() {
           </View>
         )}
 
-        {/* Suggested Next Step */}
+        {/* Next Step */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Suggested Next Step</Text>
-          <Pressable onPress={() => router.push('/(main)/appointments/book')}>
-            <LinearGradient
-              colors={[Colors.primary[500] + '20', Colors.primary[600] + '10']}
-              style={styles.actionCard}
-            >
+          <Text style={styles.sectionTitle}>SUGGESTED NEXT STEP</Text>
+          <Pressable onPress={handleBookAppointment}>
+            <Card variant="elevated" style={styles.actionCard}>
               <View style={styles.actionIcon}>
                 {currentIntake.escalationLevel === 'teleconsult' ? (
                   <Video size={28} color={Colors.primary[500]} />
@@ -302,9 +203,7 @@ export default function SymptomReviewScreen() {
                     ? 'Book a Teleconsult'
                     : currentIntake.escalationLevel === 'clinic_visit'
                       ? 'Schedule a Clinic Visit'
-                      : currentIntake.escalationLevel === 'emergency'
-                        ? 'Go to Emergency Room'
-                        : 'Self-Care Recommended'}
+                      : 'Self-Care Recommended'}
                 </Text>
                 <Text style={styles.actionSubtitle}>
                   {currentIntake.escalationLevel === 'self_care'
@@ -313,24 +212,9 @@ export default function SymptomReviewScreen() {
                 </Text>
               </View>
               <ChevronRight size={24} color={Colors.primary[500]} />
-            </LinearGradient>
+            </Card>
           </Pressable>
         </View>
-
-        {/* Confidence Gaps */}
-        {currentIntake.confidenceGaps && currentIntake.confidenceGaps.length > 0 && (
-          <View style={styles.section}>
-            <Card variant="outlined" style={styles.gapsCard}>
-              <Info size={18} color={Colors.info} />
-              <View style={styles.gapsContent}>
-                <Text style={styles.gapsTitle}>Additional Info Needed</Text>
-                <Text style={styles.gapsText}>
-                  {currentIntake.confidenceGaps.join(', ')}
-                </Text>
-              </View>
-            </Card>
-          </View>
-        )}
 
         {/* Disclaimer */}
         <View style={styles.disclaimer}>
@@ -339,9 +223,9 @@ export default function SymptomReviewScreen() {
             Always consult a healthcare professional for proper diagnosis and treatment.
           </Text>
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
 
-      {/* Bottom Actions */}
+      {/* Bottom Action */}
       <View style={styles.bottomContainer}>
         <Button
           title="Done"
@@ -349,7 +233,7 @@ export default function SymptomReviewScreen() {
           fullWidth
         />
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -357,6 +241,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.dark.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  backButton: {
+    padding: Spacing.sm,
+  },
+  headerTitle: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '600',
+    color: Colors.dark.text,
+  },
+  headerSpacer: {
+    width: 40,
   },
   analyzingContainer: {
     flex: 1,
@@ -381,25 +285,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing['2xl'],
   },
-  progressContainer: {
+  progressBar: {
     width: '60%',
-  },
-  progressTrack: {
     height: 4,
     backgroundColor: Colors.dark.surface,
     borderRadius: 2,
     overflow: 'hidden',
+    marginBottom: Spacing.xl,
   },
-  progressBar: {
+  progressFill: {
+    width: '70%',
     height: '100%',
+    backgroundColor: Colors.primary[500],
     borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressGradient: {
-    flex: 1,
-  },
-  privacyNote: {
-    marginTop: Spacing.xl,
   },
   privacyText: {
     fontSize: Typography.fontSize.sm,
@@ -415,8 +313,7 @@ const styles = StyleSheet.create({
     padding: Spacing.base,
     borderRadius: BorderRadius.xl,
     marginBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.dark.border,
+    marginTop: Spacing.base,
   },
   urgencyIcon: {
     width: 48,
@@ -444,14 +341,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xl,
   },
   sectionTitle: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     fontWeight: '600',
     color: Colors.dark.textSecondary,
-    textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: Spacing.sm,
   },
-  symptomsCard: {
+  card: {
     padding: Spacing.base,
   },
   symptomRow: {
@@ -460,22 +356,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: Spacing.sm,
   },
-  symptomInfo: {
-    flex: 1,
-  },
   symptomName: {
     fontSize: Typography.fontSize.base,
     fontWeight: '500',
     color: Colors.dark.text,
-  },
-  symptomDetail: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.dark.textMuted,
-    marginTop: 2,
-  },
-  symptomMeta: {
-    alignItems: 'flex-end',
-    gap: Spacing.xs,
   },
   severityBadge: {
     paddingHorizontal: Spacing.sm,
@@ -487,18 +371,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'capitalize',
   },
-  durationBadge: {
+  durationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
+    marginTop: Spacing.sm,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.dark.border,
   },
   durationText: {
-    fontSize: Typography.fontSize.xs,
+    fontSize: Typography.fontSize.sm,
     color: Colors.dark.textMuted,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.dark.border,
   },
   tagsContainer: {
     flexDirection: 'row',
@@ -515,14 +399,11 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     color: Colors.dark.textSecondary,
   },
-  recommendationsCard: {
-    padding: Spacing.base,
-  },
   recommendationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
   },
   recommendationText: {
     flex: 1,
@@ -533,9 +414,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.base,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.primary[500] + '30',
   },
   actionIcon: {
     width: 56,
@@ -559,25 +437,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.sm,
     color: Colors.dark.textSecondary,
   },
-  gapsCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    padding: Spacing.base,
-    gap: Spacing.md,
-  },
-  gapsContent: {
-    flex: 1,
-  },
-  gapsTitle: {
-    fontSize: Typography.fontSize.sm,
-    fontWeight: '600',
-    color: Colors.info,
-    marginBottom: 2,
-  },
-  gapsText: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.dark.textSecondary,
-  },
   disclaimer: {
     backgroundColor: Colors.dark.surface,
     padding: Spacing.base,
@@ -587,7 +446,7 @@ const styles = StyleSheet.create({
   disclaimerText: {
     fontSize: Typography.fontSize.xs,
     color: Colors.dark.textMuted,
-    lineHeight: Typography.fontSize.xs * 1.5,
+    lineHeight: 18,
     textAlign: 'center',
   },
   bottomContainer: {

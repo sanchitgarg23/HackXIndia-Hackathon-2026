@@ -1,31 +1,39 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { authApi, patientApi, appointmentApi } from '../services/api';
 
 // --- Types ---
 export interface User {
-  _id: string; // Changed from id to _id to match Mongo
+  id: string;
+  _id?: string;
   name: string;
   email: string;
-  role: 'PATIENT' | 'DOCTOR';
+  role?: 'PATIENT' | 'DOCTOR';
   avatar?: string;
-  profilePhoto?: string; // Backend uses profilePhoto
+  profilePhoto?: string;
+  phone?: string;
   dateOfBirth?: string;
   gender?: string;
   specialization?: string;
   hospital?: string;
   department?: string;
+  language?: string;
+  allergies?: string[];
+  chronicConditions?: string[];
+  isOnboarded?: boolean;
 }
 
-// Add these missing interfaces
 export interface HealthMetric {
   _id?: string;
+  id?: string;
   title: string;
   data: {
     value?: string | number;
     unit?: string;
     trend?: 'up' | 'down' | 'stable';
+    active?: boolean;
+    dosage?: string;
+    frequency?: string;
     [key: string]: any;
   };
   date: string;
@@ -33,6 +41,7 @@ export interface HealthMetric {
 
 export interface Diagnosis {
   _id?: string;
+  id?: string;
   title: string;
   date: string;
   data: {
@@ -44,16 +53,19 @@ export interface Diagnosis {
 
 export interface Medication {
   _id?: string;
+  id?: string;
   title: string;
   data: {
     dosage?: string;
     frequency?: string;
+    active?: boolean;
     [key: string]: any;
   };
 }
 
 export interface MedicalDocument {
   _id?: string;
+  id?: string;
   title: string;
   type: string;
   date: string;
@@ -64,7 +76,7 @@ export interface MedicalDocument {
 
 export interface Appointment {
   _id?: string;
-  id?: string; // For backward compatibility if needed
+  id?: string;
   type: 'teleconsult' | 'clinic';
   doctorName: string;
   specialty: string;
@@ -74,25 +86,17 @@ export interface Appointment {
   location?: string;
 }
 
+// --- User Store ---
 interface UserState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-
-  // Actions
-  login: (credentials: any) => Promise<void>;
-  signup: (data: any) => Promise<void>;
+  setUser: (user: User) => void;
+  setToken: (token: string) => void;
   logout: () => void;
-  id: string;
-  name: string;
-  dosage: string;
-  frequency: string;
-  startDate: string;
-  endDate?: string;
-  reminderEnabled: boolean;
-  isActive: boolean;
+  clearError: () => void;
 }
 
 export const useUserStore = create<UserState>()(
@@ -103,67 +107,11 @@ export const useUserStore = create<UserState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
-      id: '',
-      name: '',
-      dosage: '',
-      frequency: '',
-      startDate: '',
-      endDate: '',
-      reminderEnabled: false,
-      isActive: true,
 
-      login: async (credentials) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await authApi.login(credentials);
-          const { user, token } = response.data;
-          set({
-            user,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-          // Store token in AsyncStorage manually if needed outside persist,
-          // but persist middleware handles it for the store state.
-          await AsyncStorage.setItem('token', token);
-        } catch (error: any) {
-          set({
-            error: error.response?.data?.message || 'Login failed',
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
-
-      signup: async (data) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await authApi.register(data);
-          const { user, token } = response.data;
-          set({
-            user,
-            token,
-            isAuthenticated: true,
-            isLoading: false,
-          });
-          await AsyncStorage.setItem('token', token);
-        } catch (error: any) {
-          set({
-            error: error.response?.data?.message || 'Signup failed',
-            isLoading: false,
-          });
-          throw error;
-        }
-      },
-
-      logout: async () => {
-        await AsyncStorage.removeItem('token');
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-        });
-      },
+      setUser: (user) => set({ user, isAuthenticated: true }),
+      setToken: (token) => set({ token }),
+      logout: () => set({ user: null, token: null, isAuthenticated: false }),
+      clearError: () => set({ error: null }),
     }),
     {
       name: 'user-storage',
@@ -172,6 +120,7 @@ export const useUserStore = create<UserState>()(
   )
 );
 
+// --- Health Store with Mock Data ---
 interface HealthStore {
   healthScore: number;
   diagnoses: Diagnosis[];
@@ -179,27 +128,54 @@ interface HealthStore {
   medications: Medication[];
   vitals: HealthMetric[];
   activeConditions: string[];
+  appointments: Appointment[];
+  isLoading: boolean;
+
   setHealthScore: (score: number) => void;
   addDiagnosis: (diagnosis: Diagnosis) => void;
   addDocument: (doc: MedicalDocument) => void;
   addMedication: (med: Medication) => void;
   addVital: (vital: HealthMetric) => void;
-
-
-  isLoading: boolean;
-  appointments: any[];
   fetchDashboard: () => Promise<void>;
   fetchAppointments: () => Promise<void>;
 }
 
+// Mock data for demo
+const MOCK_VITALS: HealthMetric[] = [
+  { id: '1', title: 'Blood Pressure', data: { value: '120/80', unit: 'mmHg', trend: 'stable' }, date: new Date().toISOString() },
+  { id: '2', title: 'Heart Rate', data: { value: '72', unit: 'bpm', trend: 'stable' }, date: new Date().toISOString() },
+  { id: '3', title: 'Blood Sugar', data: { value: '98', unit: 'mg/dL', trend: 'down' }, date: new Date().toISOString() },
+  { id: '4', title: 'Weight', data: { value: '68', unit: 'kg', trend: 'stable' }, date: new Date().toISOString() },
+];
+
+const MOCK_DIAGNOSES: Diagnosis[] = [
+  { id: '1', title: 'Seasonal Allergies', date: '2026-01-15', data: { severity: 'low', status: 'active' } },
+  { id: '2', title: 'Mild Migraine', date: '2026-01-10', data: { severity: 'medium', status: 'resolved' } },
+];
+
+const MOCK_MEDICATIONS: Medication[] = [
+  { id: '1', title: 'Cetirizine', data: { dosage: '10mg', frequency: 'Once daily', active: true } },
+  { id: '2', title: 'Paracetamol', data: { dosage: '500mg', frequency: 'As needed', active: true } },
+];
+
+const MOCK_DOCUMENTS: MedicalDocument[] = [
+  { id: '1', title: 'Blood Test Report', type: 'lab_report', date: '2026-01-18', status: 'completed', data: { summary: 'All values normal' } },
+  { id: '2', title: 'Prescription - Dr. Sharma', type: 'prescription', date: '2026-01-15', status: 'completed' },
+];
+
+const MOCK_APPOINTMENTS: Appointment[] = [
+  { id: '1', type: 'teleconsult', doctorName: 'Dr. Priya Sharma', specialty: 'General Medicine', date: '2026-01-22', time: '10:00 AM', status: 'confirmed' },
+  { id: '2', type: 'clinic', doctorName: 'Dr. Rajesh Kumar', specialty: 'Cardiologist', date: '2026-01-25', time: '2:30 PM', status: 'pending', location: 'Apollo Hospital, Delhi' },
+];
+
 export const useHealthStore = create<HealthStore>((set, get) => ({
   healthScore: 85,
-  diagnoses: [],
-  documents: [],
-  medications: [],
-  vitals: [],
-  activeConditions: [],
-  appointments: [],
+  diagnoses: MOCK_DIAGNOSES,
+  documents: MOCK_DOCUMENTS,
+  medications: MOCK_MEDICATIONS,
+  vitals: MOCK_VITALS,
+  activeConditions: ['Seasonal Allergies', 'Mild Hypertension'],
+  appointments: MOCK_APPOINTMENTS,
   isLoading: false,
 
   setHealthScore: (score) => set({ healthScore: score }),
@@ -214,34 +190,20 @@ export const useHealthStore = create<HealthStore>((set, get) => ({
 
   fetchDashboard: async () => {
     set({ isLoading: true });
-    try {
-      const response = await patientApi.getDashboard();
-      const data = response.data;
-      set({
-        healthScore: data.healthScore,
-        vitals: data.vitals || [],
-        activeConditions: data.activeConditions || [],
-        medications: data.medications || [],
-        diagnoses: data.recentDiagnoses || []
-      });
-    } catch (error) {
-      console.error('Failed to fetch dashboard:', error);
-    } finally {
-      set({ isLoading: false });
-    }
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    // Data is already set as mock, just toggle loading
+    set({ isLoading: false });
   },
 
   fetchAppointments: async () => {
-    try {
-      const response = await appointmentApi.getAppointments();
-      set({ appointments: response.data });
-    } catch (error) {
-      console.error('Failed to fetch appointments:', error);
-    }
-  }
+    set({ isLoading: true });
+    await new Promise(resolve => setTimeout(resolve, 300));
+    set({ isLoading: false });
+  },
 }));
 
-// Symptom Intake state
+// --- Symptom Intake Store ---
 interface SymptomIntake {
   id?: string;
   inputMode: 'voice' | 'text';
@@ -285,7 +247,7 @@ export const useIntakeStore = create<IntakeStore>((set) => ({
   setIsRecording: (isRecording) => set({ isRecording }),
 }));
 
-// App state
+// --- App Store ---
 interface AppStore {
   isDarkMode: boolean;
   language: string;

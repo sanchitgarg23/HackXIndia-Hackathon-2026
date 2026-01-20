@@ -10,7 +10,9 @@ export default function SymptomCheckLayout() {
         animation: 'slide_from_right',
       }}
     >
+      <Stack.Screen name="index" />
       <Stack.Screen name="review" />
     </Stack>
   );
 }
+
