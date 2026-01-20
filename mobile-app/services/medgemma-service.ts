@@ -2,7 +2,7 @@ import { initLlama, LlamaContext } from 'llama.rn';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // Enable mock mode for testing UI without downloading the actual model
-const MOCK_MODE = false;
+const MOCK_MODE = true;
 
 // LLaVA-v1.5-7B Multimodal Configuration
 const MODEL_CONFIG = {
@@ -74,6 +74,7 @@ class MedGemmaService {
      * Check if model is ready for inference
      */
     isReady(): boolean {
+        if (MOCK_MODE) return this.status.state === 'ready';
         return this.status.state === 'ready' && this.context !== null;
     }
 
@@ -84,6 +85,16 @@ class MedGemmaService {
      * Download LLaVA model components if not already cached
      */
     async downloadModel(): Promise<void> {
+        if (MOCK_MODE) {
+            console.log('Mock Mode: Skipping download');
+            this.updateStatus({ state: 'downloading', progress: 0 });
+            await new Promise(resolve => setTimeout(resolve, 500));
+            this.updateStatus({ state: 'downloading', progress: 50 });
+            await new Promise(resolve => setTimeout(resolve, 500));
+            this.updateStatus({ state: 'ready', progress: 100, modelPath: 'mock-path' });
+            return;
+        }
+
         try {
             await this.downloadFile(
                 MODEL_CONFIG.main.url,
@@ -144,6 +155,14 @@ class MedGemmaService {
      * Initialize LLaVA context with main model and multimodal projector
      */
     async initializeModel(): Promise<void> {
+        if (MOCK_MODE) {
+            console.log('Mock Mode: Skipping initialization');
+            this.updateStatus({ state: 'initializing', progress: 0 });
+            await new Promise(resolve => setTimeout(resolve, 800));
+            this.updateStatus({ state: 'ready', progress: 100, modelPath: 'mock-path' });
+            return;
+        }
+
         try {
             if (this.context) {
                 console.log('Model already initialized');
@@ -220,6 +239,11 @@ class MedGemmaService {
 
         const startTime = Date.now();
 
+        if (MOCK_MODE) {
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate inference time
+            return this.getMockResponse(query, !!imagePath);
+        }
+
         try {
             // Build LLaVA prompt
             const prompt = this.buildMedicalPrompt(query, !!imagePath);
@@ -256,6 +280,56 @@ class MedGemmaService {
             console.error('Inference failed:', errorMessage);
             throw error;
         }
+    }
+
+    private getMockResponse(query: string, hasImage: boolean): MedicalAnalysis {
+        const q = query.toLowerCase();
+
+        let analysis: MedicalAnalysis = {
+            normalizedSymptoms: ['Unspecified symptoms'],
+            duration: 'Unknown',
+            severity: 'low',
+            riskFactors: [],
+            confidenceGaps: [],
+            redFlags: [],
+            urgencyScore: 'low',
+            rawResponse: 'Mock response generated.',
+            inferenceTime: 1250,
+        };
+
+        if (hasImage) {
+            analysis = {
+                ...analysis,
+                normalizedSymptoms: ['Fracture visible in distal radius', 'Soft tissue swelling'],
+                severity: 'high',
+                urgencyScore: 'high',
+                redFlags: ['Bone displacement'],
+                rawResponse: 'Image analysis suggests a fracture in the distal radius with associated soft tissue swelling. Immediate orthopedic consultation is recommended.',
+            };
+        } else if (q.includes('headache') || q.includes('migraine')) {
+            analysis = {
+                ...analysis,
+                normalizedSymptoms: ['Cephalgia (Headache)', 'Photophobia', 'Nausea'],
+                duration: '2 days',
+                severity: 'medium',
+                riskFactors: ['History of migraines'],
+                urgencyScore: 'medium',
+                rawResponse: 'Patient reports severe headache accompanied by light sensitivity and nausea. Symptoms are consistent with acute migraine.',
+            };
+        } else if (q.includes('chest pain') || q.includes('heart')) {
+            analysis = {
+                ...analysis,
+                normalizedSymptoms: ['Angina Pectoris', 'Shortness of Breath'],
+                duration: 'Acute (30 mins)',
+                severity: 'high',
+                riskFactors: ['Hypertension', 'Age > 50'],
+                redFlags: ['Radiating pain', 'Diaphoresis'],
+                urgencyScore: 'emergency',
+                rawResponse: 'CRITICAL: Patient describes symptoms consistent with Acute Coronary Syndrome. Immediate emergency care is required.',
+            };
+        }
+
+        return analysis;
     }
 
     /**
