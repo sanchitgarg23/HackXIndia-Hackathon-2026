@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   Pressable,
   FlatList,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Plus,
   Calendar,
@@ -18,8 +18,6 @@ import {
   Building2,
   User,
   ChevronRight,
-  CheckCircle,
-  AlertCircle,
 } from 'lucide-react-native';
 import { PageHeader, Card, Button } from '../../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
@@ -158,7 +156,7 @@ export default function AppointmentsScreen() {
               title="Reschedule"
               variant="outline"
               size="sm"
-              onPress={() => {}}
+              onPress={() => alert('Rescheduling functionality coming soon')}
               style={{ flex: 1 }}
             />
           </View>
@@ -168,7 +166,7 @@ export default function AppointmentsScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <PageHeader
         title="Appointments"
         subtitle={`${mockAppointments.upcoming.length} upcoming visits`}
@@ -202,7 +200,7 @@ export default function AppointmentsScreen() {
         </Pressable>
       </View>
 
-      {/* Book CTA */}
+      {/* Book CTA for Empty State or List Header */}
       {activeTab === 'upcoming' && (
         <Pressable
           style={styles.bookCTA}
@@ -245,7 +243,7 @@ export default function AppointmentsScreen() {
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -264,28 +262,27 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    marginHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.base,
-    backgroundColor: Colors.dark.surface,
-    borderRadius: BorderRadius.xl,
-    padding: 4,
+    gap: Spacing.md,
   },
   tab: {
-    flex: 1,
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    borderRadius: BorderRadius.lg,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: BorderRadius.full,
+    backgroundColor: Colors.dark.surface,
   },
   tabActive: {
-    backgroundColor: Colors.dark.cardElevated,
+    backgroundColor: Colors.primary[500],
   },
   tabText: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.dark.textMuted,
+    color: Colors.dark.textSecondary,
     fontWeight: '500',
   },
   tabTextActive: {
-    color: Colors.primary[500],
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   bookCTA: {
     marginHorizontal: Spacing.xl,
@@ -300,8 +297,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.primary[500] + '30',
   },
   bookIcon: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: BorderRadius.lg,
     backgroundColor: Colors.primary[500] + '20',
     justifyContent: 'center',
@@ -312,32 +309,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   bookTitle: {
-    fontSize: Typography.fontSize.base,
+    fontSize: Typography.fontSize.sm,
     fontWeight: '600',
     color: Colors.dark.text,
   },
   bookSubtitle: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.dark.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
   listContainer: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: 120,
-    gap: Spacing.md,
+    paddingBottom: 120, // Bottom padding for tab bar
+    paddingTop: Spacing.base,
   },
   appointmentCard: {
+    marginBottom: Spacing.md,
     padding: Spacing.base,
   },
   appointmentHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: Spacing.base,
+    marginBottom: Spacing.md,
   },
   typeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: Spacing.sm,
   },
   typeIcon: {
     width: 32,
@@ -345,29 +344,26 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: Spacing.sm,
   },
   typeText: {
     fontSize: Typography.fontSize.sm,
-    color: Colors.dark.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: Colors.dark.text,
   },
   statusBadge: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    borderRadius: BorderRadius.full,
+    borderRadius: 4,
   },
   statusText: {
-    fontSize: Typography.fontSize.xs,
-    fontWeight: '600',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
   doctorInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: Spacing.base,
-    paddingBottom: Spacing.base,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.dark.border,
+    marginBottom: Spacing.md,
   },
   doctorAvatar: {
     width: 48,
@@ -387,45 +383,45 @@ const styles = StyleSheet.create({
     color: Colors.dark.text,
   },
   doctorSpecialty: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     color: Colors.dark.textSecondary,
     marginTop: 2,
   },
   appointmentDetails: {
-    gap: Spacing.sm,
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+    flexWrap: 'wrap',
   },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: 4,
   },
   detailText: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     color: Colors.dark.textSecondary,
-    flex: 1,
   },
   appointmentActions: {
     flexDirection: 'row',
-    marginTop: Spacing.base,
-    paddingTop: Spacing.base,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
+    marginTop: Spacing.sm,
   },
   emptyState: {
     alignItems: 'center',
-    paddingTop: Spacing['3xl'],
+    justifyContent: 'center',
+    padding: Spacing.xl,
+    marginTop: Spacing.xl,
   },
   emptyTitle: {
     fontSize: Typography.fontSize.lg,
     fontWeight: '600',
     color: Colors.dark.text,
     marginTop: Spacing.base,
-    marginBottom: Spacing.xs,
   },
   emptySubtitle: {
     fontSize: Typography.fontSize.sm,
     color: Colors.dark.textMuted,
     textAlign: 'center',
-    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.sm,
   },
 });

@@ -9,17 +9,16 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Plus,
   FileText,
   Image,
   FileCheck,
   Clock,
-  Search,
-  Filter,
   ChevronRight,
 } from 'lucide-react-native';
-import { PageHeader, Card, Button, SearchInput } from '../../../components/ui';
+import { PageHeader, Card, SearchInput } from '../../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
 import { useHealthStore } from '../../../stores';
 
@@ -136,7 +135,7 @@ export default function DocumentsScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       <PageHeader
         title="Documents"
         subtitle={`${mockDocuments.length} medical documents`}
@@ -160,31 +159,33 @@ export default function DocumentsScreen() {
       </View>
 
       {/* Type Filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterContainer}
-      >
-        {documentTypes.map((type) => (
-          <Pressable
-            key={type.id}
-            style={[
-              styles.filterChip,
-              selectedType === type.id && styles.filterChipActive,
-            ]}
-            onPress={() => setSelectedType(type.id)}
-          >
-            <Text
+      <View style={styles.filterSection}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContainer}
+        >
+          {documentTypes.map((type) => (
+            <Pressable
+              key={type.id}
               style={[
-                styles.filterText,
-                selectedType === type.id && styles.filterTextActive,
+                styles.filterChip,
+                selectedType === type.id && styles.filterChipActive,
               ]}
+              onPress={() => setSelectedType(type.id)}
             >
-              {type.label}
-            </Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.filterText,
+                  selectedType === type.id && styles.filterTextActive,
+                ]}
+              >
+                {type.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Upload CTA */}
       <Pressable
@@ -222,10 +223,16 @@ export default function DocumentsScreen() {
             <Text style={styles.emptySubtitle}>
               Upload your first medical document to get started
             </Text>
+            <Pressable
+              style={styles.emptyButton}
+              onPress={() => router.push('/(main)/documents/upload')}
+            >
+              <Text style={styles.emptyButtonText}>Upload Now</Text>
+            </Pressable>
           </View>
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -238,20 +245,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
     marginBottom: Spacing.base,
   },
+  filterSection: {
+    marginBottom: Spacing.base,
+  },
   filterContainer: {
     paddingHorizontal: Spacing.xl,
-    marginBottom: Spacing.base,
     gap: Spacing.sm,
   },
   filterChip: {
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    borderRadius: BorderRadius.full,
+    borderRadius: BorderRadius.xl,
     backgroundColor: Colors.dark.surface,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
     marginRight: Spacing.sm,
   },
   filterChipActive: {
     backgroundColor: Colors.primary[500],
+    borderColor: Colors.primary[500],
   },
   filterText: {
     fontSize: Typography.fontSize.sm,
@@ -260,6 +272,7 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: '#FFFFFF',
+    fontWeight: '600',
   },
   addButton: {
     width: 40,
@@ -268,6 +281,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary[500],
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  listContainer: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: 120,
+    paddingTop: Spacing.base,
   },
   uploadCTA: {
     marginHorizontal: Spacing.xl,
@@ -280,11 +298,10 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.xl,
     borderWidth: 1,
     borderColor: Colors.primary[500] + '30',
-    borderStyle: 'dashed',
   },
   uploadIcon: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: BorderRadius.lg,
     backgroundColor: Colors.primary[500] + '20',
     justifyContent: 'center',
@@ -295,21 +312,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   uploadTitle: {
-    fontSize: Typography.fontSize.base,
+    fontSize: Typography.fontSize.sm,
     fontWeight: '600',
     color: Colors.dark.text,
   },
   uploadSubtitle: {
-    fontSize: Typography.fontSize.sm,
-    color: Colors.dark.textSecondary,
+    fontSize: Typography.fontSize.xs,
+    color: Colors.dark.textMuted,
     marginTop: 2,
   },
-  listContainer: {
-    paddingHorizontal: Spacing.xl,
-    paddingBottom: 120,
-    gap: Spacing.md,
-  },
   documentCard: {
+    marginBottom: Spacing.md,
     padding: Spacing.base,
   },
   documentRow: {
@@ -317,8 +330,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   documentIcon: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: BorderRadius.lg,
     justifyContent: 'center',
     alignItems: 'center',
@@ -335,9 +348,9 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   documentSummary: {
-    fontSize: Typography.fontSize.sm,
+    fontSize: Typography.fontSize.xs,
     color: Colors.dark.textSecondary,
-    marginBottom: Spacing.xs,
+    marginBottom: 4,
   },
   documentMeta: {
     flexDirection: 'row',
@@ -350,30 +363,43 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     backgroundColor: Colors.warning + '20',
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: Spacing.xs,
     paddingVertical: 2,
-    borderRadius: BorderRadius.full,
+    borderRadius: 4,
     marginLeft: Spacing.sm,
   },
   pendingText: {
-    fontSize: Typography.fontSize.xs,
+    fontSize: 10,
     color: Colors.warning,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',
-    paddingTop: Spacing['3xl'],
+    justifyContent: 'center',
+    padding: Spacing.xl,
+    marginTop: Spacing.xl,
   },
   emptyTitle: {
     fontSize: Typography.fontSize.lg,
     fontWeight: '600',
     color: Colors.dark.text,
     marginTop: Spacing.base,
-    marginBottom: Spacing.xs,
   },
   emptySubtitle: {
     fontSize: Typography.fontSize.sm,
     color: Colors.dark.textMuted,
     textAlign: 'center',
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xl,
+  },
+  emptyButton: {
+    backgroundColor: Colors.primary[500],
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: Spacing.sm,
+    borderRadius: BorderRadius.full,
+  },
+  emptyButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

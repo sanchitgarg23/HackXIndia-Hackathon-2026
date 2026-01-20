@@ -18,8 +18,8 @@ import Animated, {
   withSequence,
   Easing,
 } from 'react-native-reanimated';
-import { Mic, Keyboard, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react-native';
-import { Header, Button, Card } from '../../../components/ui';
+import { Mic, Keyboard, ChevronRight, AlertTriangle, CheckCircle, Activity } from 'lucide-react-native';
+import { Header, Button, Card, TextInput } from '../../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
 import { useIntakeStore } from '../../../stores';
 
@@ -29,6 +29,9 @@ export default function SymptomCheckScreen() {
   const router = useRouter();
   const { isRecording, setIsRecording } = useIntakeStore();
   const [inputMode, setInputMode] = useState<'voice' | 'text' | null>(null);
+  /* Voice Flow States */
+  const [voiceStep, setVoiceStep] = useState<'idle' | 'recording' | 'processing' | 'questioning'>('idle');
+  const [textSymptom, setTextSymptom] = useState('');
 
   // Animation values
   const pulseScale = useSharedValue(1);
@@ -36,6 +39,7 @@ export default function SymptomCheckScreen() {
 
   const startRecording = () => {
     setIsRecording(true);
+    setVoiceStep('recording');
     setInputMode('voice');
     // Animate pulse
     pulseScale.value = withRepeat(
@@ -60,7 +64,16 @@ export default function SymptomCheckScreen() {
     setIsRecording(false);
     pulseScale.value = withSpring(1);
     pulseOpacity.value = withSpring(0.5);
-    // Navigate to review
+    
+    // Move to processing then questioning
+    setVoiceStep('processing');
+    setTimeout(() => {
+      setVoiceStep('questioning');
+    }, 2000);
+  };
+
+  const handleVoiceResponse = () => {
+    // Navigate to review after answering follow-up
     router.push('/(main)/symptom-check/review');
   };
 
@@ -85,7 +98,7 @@ export default function SymptomCheckScreen() {
 
           {/* Input Method Cards */}
           <View style={styles.methodsContainer}>
-            <Pressable onPress={() => setInputMode('voice')}>
+            <Pressable onPress={startRecording}>
               <LinearGradient
                 colors={[Colors.primary[500] + '20', Colors.primary[600] + '10']}
                 style={styles.methodCard}
@@ -159,74 +172,96 @@ export default function SymptomCheckScreen() {
     return (
       <View style={styles.container}>
         <Header
-          title={isRecording ? 'Listening...' : 'Voice Input'}
+          title={voiceStep === 'questioning' ? 'Follow-up' : (isRecording ? 'Listening...' : 'Voice Input')}
           showBack
           leftAction={
-            !isRecording && (
-              <Pressable onPress={() => setInputMode(null)} style={styles.backButton}>
-                <Text style={styles.backText}>Change</Text>
+            !isRecording && voiceStep !== 'processing' && (
+              <Pressable onPress={() => { setInputMode(null); setVoiceStep('idle'); }} style={styles.backButton}>
+                <Text style={styles.backText}>Cancel</Text>
               </Pressable>
             )
           }
         />
 
         <View style={styles.voiceContainer}>
-          {/* Instructions */}
-          <View style={styles.voiceInstructions}>
-            <Text style={styles.voiceTitle}>
-              {isRecording
-                ? 'Describe your symptoms...'
-                : 'Tap the microphone to start'}
-            </Text>
-            <Text style={styles.voiceSubtitle}>
-              {isRecording
-                ? 'Speak clearly about what you\'re experiencing'
-                : 'Our AI will analyze your symptoms'}
-            </Text>
-          </View>
-
-          {/* Microphone Button */}
-          <View style={styles.micContainer}>
-            {/* Pulse Animation */}
-            {isRecording && (
-              <Animated.View style={[styles.pulse, pulseAnimatedStyle]} />
-            )}
-            
-            <Pressable
-              onPress={isRecording ? stopRecording : startRecording}
-              style={[styles.micButton, isRecording && styles.micButtonActive]}
-            >
-              <Mic size={40} color="#FFFFFF" />
-            </Pressable>
-          </View>
-
-          {/* Transcript Preview */}
-          {isRecording && (
-            <View style={styles.transcriptContainer}>
-              <Text style={styles.transcriptLabel}>Transcribing...</Text>
-              <Text style={styles.transcriptText}>
-                "I've been having a headache since yesterday morning, mostly on the right side..."
+          {/* Questioning State */}
+          {voiceStep === 'questioning' ? (
+            <View style={styles.questionContainer}>
+              <View style={[styles.aiAvatar, { backgroundColor: Colors.primary[500] + '20' }]}>
+                 <Activity size={32} color={Colors.primary[500]} />
+              </View>
+              <Text style={styles.aiQuestion}>
+                "I noticed you mentioned a headache. Is it accompanied by any sensitivity to light or nausea?"
               </Text>
-            </View>
-          )}
-
-          {/* Tips */}
-          <View style={styles.tipsContainer}>
-            <Text style={styles.tipsTitle}>Tips for better results:</Text>
-            <Text style={styles.tipText}>• Describe when symptoms started</Text>
-            <Text style={styles.tipText}>• Mention severity (mild, moderate, severe)</Text>
-            <Text style={styles.tipText}>• Include any related symptoms</Text>
-          </View>
-
-          {/* Actions */}
-          {isRecording && (
-            <View style={styles.voiceActions}>
-              <Button
-                title="Stop & Analyze"
-                onPress={stopRecording}
-                fullWidth
+              
+              <View style={styles.answerOptions}>
+                 <Button title="Yes" onPress={handleVoiceResponse} style={styles.answerBtn} />
+                 <Button title="No" variant="outline" onPress={handleVoiceResponse} style={styles.answerBtn} />
+              </View>
+              <Button 
+                title="Repy with Voice" 
+                variant="ghost" 
+                icon={<Mic size={18} color={Colors.primary[500]} />} 
+                onPress={handleVoiceResponse}
               />
             </View>
+          ) : voiceStep === 'processing' ? (
+             <View style={styles.processingContainer}>
+                <Activity size={48} color={Colors.primary[500]} />
+                <Text style={styles.processingText}>Analying symptoms...</Text>
+             </View>
+          ) : (
+            <>
+              {/* Instructions */}
+              <View style={styles.voiceInstructions}>
+                <Text style={styles.voiceTitle}>
+                  {isRecording
+                    ? 'Describe your symptoms...'
+                    : 'Tap the microphone to start'}
+                </Text>
+                <Text style={styles.voiceSubtitle}>
+                  {isRecording
+                    ? 'Speak clearly about what you\'re experiencing'
+                    : 'Our AI will analyze your symptoms'}
+                </Text>
+              </View>
+
+              {/* Microphone Button */}
+              <View style={styles.micContainer}>
+                {/* Pulse Animation */}
+                {isRecording && (
+                  <Animated.View style={[styles.pulse, pulseAnimatedStyle]} />
+                )}
+                
+                <Pressable
+                  onPress={isRecording ? stopRecording : startRecording}
+                  style={[styles.micButton, isRecording && styles.micButtonActive]}
+                >
+                  <Mic size={40} color="#FFFFFF" />
+                </Pressable>
+              </View>
+
+              {/* Transcript Preview */}
+              {isRecording && (
+                <View style={styles.transcriptContainer}>
+                  <Text style={styles.transcriptLabel}>Transcribing...</Text>
+                  <Text style={styles.transcriptText}>
+                    "I've been having a headache since yesterday morning..."
+                  </Text>
+                </View>
+              )}
+
+              {/* Actions */}
+              {isRecording && (
+                <View style={styles.voiceActions}>
+                  <Button
+                    title="Stop & Analyze"
+                    onPress={stopRecording}
+                    fullWidth
+                  />
+                </View>
+              )}
+            </>
           )}
         </View>
       </View>
@@ -236,18 +271,31 @@ export default function SymptomCheckScreen() {
   // Text Input Mode
   return (
     <View style={styles.container}>
-      <Header title="Text Input" showBack />
+      <Header title="Text Input" showBack leftAction={
+        <Pressable onPress={() => setInputMode(null)} style={styles.backButton}>
+          <Text style={styles.backText}>Cancel</Text>
+        </Pressable>
+      }/>
       <View style={styles.textInputContainer}>
-        <Text style={styles.voiceTitle}>Coming soon...</Text>
-        <Button
-          title="Use Voice Instead"
-          onPress={() => setInputMode('voice')}
-          style={{ marginTop: Spacing.xl }}
+        <TextInput
+          label="Describe your symptoms"
+          placeholder="e.g. Severe headache on the left side..."
+          value={textSymptom}
+          onChangeText={setTextSymptom}
+          multiline
+          numberOfLines={6}
+          style={{ height: 150 }}
         />
         <Button
-          title="Back"
+          title="Analyze Symptoms"
+          onPress={() => router.push('/(main)/symptom-check/review')}
+          disabled={!textSymptom.trim()}
+          style={{ marginTop: Spacing.xl, width: '100%' }}
+        />
+        <Button
+          title="Use Voice Instead"
           variant="ghost"
-          onPress={() => setInputMode(null)}
+          onPress={() => setInputMode('voice')}
           style={{ marginTop: Spacing.base }}
         />
       </View>
@@ -480,10 +528,52 @@ const styles = StyleSheet.create({
     left: Spacing.xl,
     right: Spacing.xl,
   },
-  textInputContainer: {
+  processingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  processingText: {
+    marginTop: Spacing.xl,
+    fontSize: Typography.fontSize.lg,
+    color: Colors.dark.textSecondary,
+    fontWeight: '500',
+  },
+  questionContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
+  },
+  aiAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  aiQuestion: {
+    fontSize: Typography.fontSize.xl,
+    fontWeight: '600',
+    color: Colors.dark.text,
+    textAlign: 'center',
+    marginBottom: Spacing['3xl'],
+    lineHeight: 32,
+  },
+  answerOptions: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    marginBottom: Spacing.xl,
+    width: '100%',
     paddingHorizontal: Spacing.xl,
+  },
+  answerBtn: {
+    flex: 1,
+  },
+  textInputContainer: {
+    flex: 1,
+    paddingHorizontal: Spacing.xl,
+    paddingTop: Spacing.xl,
   },
 });

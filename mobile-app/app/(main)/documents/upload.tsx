@@ -151,97 +151,105 @@ export default function UploadDocumentScreen() {
           </View>
         </View>
 
-        {/* Step 2: Upload File */}
-        <View style={styles.section}>
-          <Text style={styles.stepLabel}>Step 2</Text>
-          <Text style={styles.sectionTitle}>Upload File</Text>
+        {/* Step 2: Upload File - Only visible if type selected */}
+        {selectedType && (
+          <View style={styles.section}>
+            <Text style={styles.stepLabel}>Step 2</Text>
+            <Text style={styles.sectionTitle}>Upload File</Text>
 
-          {!selectedFile ? (
-            <View style={styles.uploadOptions}>
-              <Pressable onPress={pickDocument}>
-                <LinearGradient
-                  colors={[Colors.primary[500] + '20', Colors.primary[600] + '10']}
-                  style={styles.uploadCard}
-                >
-                  <Upload size={32} color={Colors.primary[500]} />
-                  <Text style={styles.uploadLabel}>Browse Files</Text>
-                  <Text style={styles.uploadHint}>PDF, JPG, PNG</Text>
-                </LinearGradient>
-              </Pressable>
+            {!selectedFile ? (
+              <View style={styles.uploadOptions}>
+                <Pressable onPress={pickDocument} style={{ flex: 1 }}>
+                  <LinearGradient
+                    colors={[Colors.primary[500] + '20', Colors.primary[600] + '10']}
+                    style={styles.uploadCard}
+                  >
+                    <Upload size={32} color={Colors.primary[500]} />
+                    <Text style={styles.uploadLabel}>Browse Files</Text>
+                    <Text style={styles.uploadHint}>PDF, JPG, PNG</Text>
+                  </LinearGradient>
+                </Pressable>
 
-              <Pressable onPress={takePhoto}>
-                <Card variant="elevated" style={styles.uploadCard}>
-                  <Camera size={32} color={Colors.dark.textSecondary} />
-                  <Text style={styles.uploadLabel}>Take Photo</Text>
-                  <Text style={styles.uploadHint}>Use camera</Text>
-                </Card>
-              </Pressable>
-            </View>
-          ) : (
-            <Card variant="elevated" style={styles.filePreview}>
-              <View style={styles.fileInfo}>
-                <View style={styles.fileIcon}>
-                  {selectedFile.mimeType?.startsWith('image') ? (
-                    <ImageIcon size={24} color={Colors.primary[500]} />
-                  ) : (
-                    <FileText size={24} color={Colors.primary[500]} />
-                  )}
-                </View>
-                <View style={styles.fileDetails}>
-                  <Text style={styles.fileName} numberOfLines={1}>
-                    {selectedFile.name}
-                  </Text>
-                  <Text style={styles.fileSize}>
-                    {selectedFile.size ? `${Math.round(selectedFile.size / 1024)} KB` : 'Ready to upload'}
-                  </Text>
-                </View>
-                <Pressable onPress={clearFile} style={styles.clearButton}>
-                  <X size={20} color={Colors.dark.textMuted} />
+                <Pressable onPress={takePhoto} style={{ flex: 1 }}>
+                  <Card variant="elevated" style={styles.uploadCard}>
+                    <Camera size={32} color={Colors.dark.textSecondary} />
+                    <Text style={styles.uploadLabel}>Take Photo</Text>
+                    <Text style={styles.uploadHint}>Use camera</Text>
+                  </Card>
                 </Pressable>
               </View>
+            ) : (
+              <Card variant="elevated" style={styles.filePreview}>
+                <View style={styles.fileInfo}>
+                  <View style={styles.fileIcon}>
+                    {selectedFile.mimeType?.startsWith('image') ? (
+                      <ImageIcon size={24} color={Colors.primary[500]} />
+                    ) : (
+                      <FileText size={24} color={Colors.primary[500]} />
+                    )}
+                  </View>
+                  <View style={styles.fileDetails}>
+                    <Text style={styles.fileName} numberOfLines={1}>
+                      {selectedFile.name}
+                    </Text>
+                    <Text style={styles.fileSize}>
+                      {selectedFile.size ? `${Math.round(selectedFile.size / 1024)} KB` : 'Ready to upload'}
+                    </Text>
+                  </View>
+                  <Pressable onPress={clearFile} style={styles.clearButton}>
+                    <X size={20} color={Colors.dark.textMuted} />
+                  </Pressable>
+                </View>
 
-              {selectedFile.mimeType?.startsWith('image') && (
-                <Image
-                  source={{ uri: selectedFile.uri }}
-                  style={styles.imagePreview}
-                  resizeMode="cover"
-                />
-              )}
-            </Card>
-          )}
-        </View>
+                {selectedFile.mimeType?.startsWith('image') && (
+                  <View style={styles.imagePreviewContainer}>
+                    <Image
+                      source={{ uri: selectedFile.uri }}
+                      style={styles.imagePreview}
+                      resizeMode="contain"
+                    />
+                  </View>
+                )}
+              </Card>
+            )}
+          </View>
+        )}
 
         {/* AI Analysis Info */}
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>🤖 AI-Powered Analysis</Text>
-          <Text style={styles.infoText}>
-            Your document will be analyzed by MedGemma AI to extract key medical information,
-            identify important values, and add them to your health timeline.
-          </Text>
-        </View>
-      </ScrollView>
+        {selectedType && selectedFile && (
+          <View style={styles.infoSection}>
+            <Text style={styles.infoTitle}>🤖 AI-Powered Analysis</Text>
+            <Text style={styles.infoText}>
+              Your document will be analyzed by MedGemma AI to extract key medical information,
+              identify important values, and add them to your health timeline.
+            </Text>
+          </View>
+        )}
 
-      {/* Upload Button */}
-      <View style={styles.bottomContainer}>
-        <Button
-          title={
-            isUploading
-              ? 'Uploading...'
-              : isAnalyzing
-              ? 'Analyzing with AI...'
-              : 'Upload & Analyze'
-          }
-          onPress={handleUpload}
-          disabled={!selectedFile || !selectedType}
-          loading={isUploading || isAnalyzing}
-          fullWidth
-          icon={
-            !isUploading && !isAnalyzing ? (
-              <Upload size={18} color="#FFFFFF" />
-            ) : undefined
-          }
-        />
-      </View>
+        {/* Upload Button - Inline for better visibility */}
+        {selectedType && selectedFile && (
+          <View style={styles.inlineButtonContainer}>
+            <Button
+              title={
+                isUploading
+                  ? 'Uploading...'
+                  : isAnalyzing
+                  ? 'Analyzing with AI...'
+                  : 'Upload & Analyze'
+              }
+              onPress={handleUpload}
+              disabled={!selectedFile || !selectedType || isUploading || isAnalyzing}
+              loading={isUploading || isAnalyzing}
+              fullWidth
+              icon={
+                !isUploading && !isAnalyzing ? (
+                  <Upload size={18} color="#FFFFFF" />
+                ) : undefined
+              }
+            />
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -253,7 +261,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: Spacing.xl,
-    paddingBottom: 120,
+    paddingBottom: Spacing['3xl'], // Enough space
   },
   section: {
     marginBottom: Spacing['2xl'],
@@ -282,7 +290,7 @@ const styles = StyleSheet.create({
     width: (Dimensions.get('window').width - (Spacing.xl * 2) - Spacing.md) / 2,
     padding: Spacing.base,
     position: 'relative',
-    minHeight: 160, // Ensure enough height
+    minHeight: 160,
   },
   typeCardSelected: {
     borderWidth: 2,
@@ -325,13 +333,15 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
   },
   uploadCard: {
-    flex: 1,
+    width: '100%',
     padding: Spacing.xl,
     alignItems: 'center',
     borderRadius: BorderRadius.xl,
     borderWidth: 2,
     borderColor: Colors.dark.border,
     borderStyle: 'dashed',
+    height: 150,
+    justifyContent: 'center',
   },
   uploadLabel: {
     fontSize: Typography.fontSize.sm,
@@ -376,16 +386,23 @@ const styles = StyleSheet.create({
   clearButton: {
     padding: Spacing.sm,
   },
-  imagePreview: {
+  imagePreviewContainer: {
     width: '100%',
-    height: 200,
+    height: 300,
+    backgroundColor: '#000000',
     borderRadius: BorderRadius.lg,
     marginTop: Spacing.base,
+    overflow: 'hidden',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
   },
   infoSection: {
     backgroundColor: Colors.dark.surface,
     padding: Spacing.base,
     borderRadius: BorderRadius.xl,
+    marginBottom: Spacing.xl,
   },
   infoTitle: {
     fontSize: Typography.fontSize.sm,
@@ -398,15 +415,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.textSecondary,
     lineHeight: Typography.fontSize.sm * 1.5,
   },
-  bottomContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: Spacing.xl,
-    paddingBottom: Spacing['3xl'],
-    backgroundColor: Colors.dark.background,
-    borderTopWidth: 1,
-    borderTopColor: Colors.dark.border,
+  inlineButtonContainer: {
+    marginBottom: Spacing.xl,
   },
 });

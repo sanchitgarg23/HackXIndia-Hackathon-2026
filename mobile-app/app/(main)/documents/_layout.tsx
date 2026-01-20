@@ -10,6 +10,7 @@ export default function DocumentsLayout() {
         animation: 'slide_from_right',
       }}
     >
+      <Stack.Screen name="index" />
       <Stack.Screen name="upload" />
       <Stack.Screen name="[id]" />
     </Stack>

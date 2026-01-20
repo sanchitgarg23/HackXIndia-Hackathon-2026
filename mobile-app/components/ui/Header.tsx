@@ -15,6 +15,7 @@ interface HeaderProps {
   title?: string;
   subtitle?: string;
   showBack?: boolean;
+  onBackPress?: () => void;
   showNotifications?: boolean;
   showSettings?: boolean;
   rightAction?: React.ReactNode;
@@ -27,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   title,
   subtitle,
   showBack = false,
+  onBackPress,
   showNotifications = false,
   showSettings = false,
   rightAction,
@@ -50,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
         <View style={styles.left}>
           {showBack && (
             <Pressable
-              onPress={() => router.back()}
+              onPress={onBackPress || (() => router.back())}
               style={styles.iconButton}
               hitSlop={8}
             >
@@ -76,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
         <View style={styles.right}>
           {showNotifications && (
             <Pressable
-              onPress={() => {}}
+              onPress={() => alert('No new notifications')}
               style={styles.iconButton}
               hitSlop={8}
             >

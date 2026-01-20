@@ -69,7 +69,8 @@ export default function BookAppointmentScreen() {
     setIsBooking(true);
     await new Promise((resolve) => setTimeout(resolve, 2000));
     setIsBooking(false);
-    router.back();
+    // Replace with push to success screen
+    router.push('/(main)/appointments/booking-success');
   };
 
   const renderStep1 = () => (
@@ -128,6 +129,7 @@ export default function BookAppointmentScreen() {
               style={[
                 styles.doctorCard,
                 !doctor.available && styles.doctorCardDisabled,
+                selectedDoctor === doctor.id && { borderColor: Colors.primary[500] }
               ]}
             >
               <View style={styles.doctorAvatar}>
@@ -147,7 +149,7 @@ export default function BookAppointmentScreen() {
                     <Check size={12} color="#FFFFFF" />
                   </View>
                 ) : (
-                  <ChevronRight size={20} color={Colors.dark.textMuted} />
+                  <View style={{ width: 20 }} /> /* Spacer to prevent shift */
                 )
               ) : (
                 <Text style={styles.unavailableText}>Unavailable</Text>
@@ -227,7 +229,17 @@ export default function BookAppointmentScreen() {
 
   return (
     <View style={styles.container}>
-      <Header title="Book Appointment" showBack />
+      <Header 
+        title="Book Appointment" 
+        showBack 
+        onBackPress={() => {
+          if (step > 1) {
+            setStep(step - 1);
+          } else {
+            router.back();
+          }
+        }}
+      />
 
       {/* Progress Indicator */}
       <View style={styles.progressContainer}>
@@ -266,9 +278,15 @@ export default function BookAppointmentScreen() {
         {step === 1 && renderStep1()}
         {step === 2 && renderStep2()}
         {step === 3 && renderStep3()}
-      </ScrollView>
-
+      
         <View style={styles.footerActions}>
+          <Button
+            title={step === 3 ? (isBooking ? 'Booking...' : 'Confirm Booking') : 'Continue'}
+            onPress={step === 3 ? handleBook : () => setStep(step + 1)}
+            disabled={!canProceed()}
+            loading={isBooking}
+            style={styles.continueButton}
+          />
           {step > 1 && (
             <Button
               title="Back"
@@ -277,13 +295,6 @@ export default function BookAppointmentScreen() {
               style={styles.backButton}
             />
           )}
-          <Button
-            title={step === 3 ? (isBooking ? 'Booking...' : 'Confirm Booking') : 'Continue'}
-            onPress={step === 3 ? handleBook : () => setStep(step + 1)}
-            disabled={!canProceed()}
-            loading={isBooking}
-            style={styles.continueButton}
-          />
         </View>
         <View style={styles.bottomSpacing} />
       </ScrollView>
@@ -362,9 +373,10 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
     position: 'relative',
     minHeight: 180,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   typeCardSelected: {
-    borderWidth: 2,
     borderColor: Colors.primary[500],
   }, 
   typeCards: {
@@ -431,6 +443,8 @@ const styles = StyleSheet.create({
     padding: Spacing.base,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   doctorCardDisabled: {
     opacity: 0.5,
@@ -528,18 +542,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   footerActions: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: Spacing.md,
     marginTop: Spacing.xl,
+    width: '100%',
   },
   bottomSpacing: {
     height: 100, // Extra space at bottom to clear tabs/safe area
   },
   backButton: {
-    flex: 0,
-    paddingHorizontal: Spacing.xl,
+    width: '100%',
   },
   continueButton: {
-    flex: 1,
+    width: '100%',
   },
 });

@@ -10,6 +10,7 @@ export default function AppointmentsLayout() {
         animation: 'slide_from_right',
       }}
     >
+      <Stack.Screen name="index" />
       <Stack.Screen name="book" />
       <Stack.Screen name="[id]" />
     </Stack>

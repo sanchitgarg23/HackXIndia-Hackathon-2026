@@ -125,7 +125,7 @@ export default function HomeScreen() {
               icon={<AlertCircle size={24} color={Colors.error} />}
               label="Emergency"
               color={Colors.error}
-              onPress={() => {}}
+              onPress={() => alert('Emergency SOS triggered! Notifying contacts...')}
             />
           </View>
         </View>
@@ -159,7 +159,7 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <Pressable>
+            <Pressable onPress={() => alert('Activity History coming soon')}>
               <Text style={styles.seeAll}>See All</Text>
             </Pressable>
           </View>
@@ -210,7 +210,10 @@ export default function HomeScreen() {
               title="SOS"
               variant="danger"
               size="sm"
-              onPress={() => {}}
+              onPress={() => {
+                alert('Faking SOS trigger...');
+                // In a real app we would use Alert.alert or toast
+              }}
             />
           </LinearGradient>
         </View>
@@ -251,7 +254,7 @@ const StatBox: React.FC<StatBoxProps> = ({ icon, value, label, color }) => (
   <Card variant="elevated" style={styles.statBox}>
     <View style={[styles.statIcon, { backgroundColor: color + '20' }]}>{icon}</View>
     <Text style={styles.statValue}>{value}</Text>
-    <Text style={styles.statLabel}>{label}</Text>
+    <Text style={styles.statLabel} numberOfLines={1}>{label}</Text>
   </Card>
 );
 
@@ -405,7 +408,7 @@ const styles = StyleSheet.create({
   statBox: {
     flex: 1,
     alignItems: 'center',
-    padding: Spacing.base,
+    padding: Spacing.sm, // Reduced padding for better text fit
   },
   statIcon: {
     width: 40,
@@ -424,6 +427,7 @@ const styles = StyleSheet.create({
     fontSize: Typography.fontSize.xs,
     color: Colors.dark.textMuted,
     marginTop: 2,
+    textAlign: 'center',
   },
   activityCard: {
     padding: Spacing.base,
