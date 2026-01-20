@@ -2,14 +2,14 @@ import { initLlama, LlamaContext } from 'llama.rn';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // Enable mock mode for testing UI without downloading the actual model
-const MOCK_MODE = true;
+const MOCK_MODE = false;
 
-// MedGemma 4B GGUF model configuration
+// MedGemma 4B GGUF model configuration (Using BioMistral-7B as alternative due to gating)
 const MODEL_CONFIG = {
-    name: 'MedGemma-4B-IT-Q4_K_M',
-    url: 'https://huggingface.co/SandLogicTechnologies/MedGemma-4B-IT-GGUF/resolve/main/medgemma-4b-it-Q4_K_M.gguf',
-    fileName: 'medgemma-4b-it-Q4_K_M.gguf',
-    size: 2621440000, // ~2.5GB
+    name: 'BioMistral-7B-DARE-Q4_K_M',
+    url: 'https://huggingface.co/MaziyarPanahi/BioMistral-7B-DARE-GGUF/resolve/main/BioMistral-7B-DARE.Q4_K_M.gguf',
+    fileName: 'BioMistral-7B-DARE.Q4_K_M.gguf',
+    size: 4368439488, // ~4.4GB
 };
 
 export interface MedicalAnalysis {
@@ -71,26 +71,20 @@ class MedGemmaService {
      * Download MedGemma model from Hugging Face if not already cached
      */
     async downloadModel(): Promise<void> {
-        if (this.status.isMockMode) {
-            console.log('Mock Mode: Skipping download');
-            // Simulate download delay
-            this.updateStatus({ state: 'downloading', progress: 0 });
-            for (let i = 0; i <= 100; i += 20) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                this.updateStatus({ state: 'downloading', progress: i });
-            }
-            this.updateStatus({ state: 'ready', progress: 100, modelPath: 'mock-model-path' });
-            return;
-        }
-
         try {
             // Check if model already exists
             const fileInfo = await FileSystem.getInfoAsync(this.modelPath);
 
             if (fileInfo.exists) {
-                console.log('Model already downloaded');
-                this.updateStatus({ state: 'ready', progress: 100, modelPath: this.modelPath });
-                return;
+                // Verify file size
+                if (fileInfo.size === MODEL_CONFIG.size) {
+                    console.log('Model already downloaded and verified');
+                    this.updateStatus({ state: 'ready', progress: 100, modelPath: this.modelPath });
+                    return;
+                }
+
+                console.log(`Model corrupted (size mismatch: ${fileInfo.size} != ${MODEL_CONFIG.size}). Re-downloading...`);
+                await FileSystem.deleteAsync(this.modelPath, { idempotent: true });
             }
 
             console.log('Downloading MedGemma model...');
@@ -129,15 +123,6 @@ class MedGemmaService {
      * Initialize llama.cpp context with the downloaded model
      */
     async initializeModel(): Promise<void> {
-        if (this.status.isMockMode) {
-            console.log('Mock Mode: Skipping initialization');
-            // Simulate init delay
-            this.updateStatus({ state: 'initializing', progress: 0 });
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            this.updateStatus({ state: 'ready', progress: 100, modelPath: 'mock-model-path' });
-            return;
-        }
-
         try {
             if (this.context) {
                 console.log('Model already initialized');
@@ -153,20 +138,24 @@ class MedGemmaService {
             console.log('Initializing MedGemma model...');
             this.updateStatus({ state: 'initializing', progress: 50 });
 
+            // Prepare path for native module (strip file:// if present)
+            const nativePath = this.modelPath.replace(/^file:\/\//, '');
+            console.log(`Initializing model using native path: ${nativePath}`);
+
             // Initialize llama.rn context
             this.context = await initLlama({
-                model: this.modelPath,
+                model: nativePath,
                 n_ctx: 2048, // Context window
                 n_gpu_layers: 0, // Use CPU for compatibility (can enable GPU later)
-                use_mlock: true,
+                use_mlock: false, // Disable mlock to avoid memory locking issues
                 embedding: false,
             });
 
             console.log('Model initialized successfully');
             this.updateStatus({ state: 'ready', progress: 100, modelPath: this.modelPath });
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            console.error('Model initialization failed:', errorMessage);
+            console.error('Model initialization failed:', error);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown initialization error';
             this.updateStatus({ state: 'error', progress: 0, error: errorMessage });
             throw error;
         }
@@ -176,27 +165,11 @@ class MedGemmaService {
      * Process medical symptom query and return structured analysis
      */
     async inferSymptoms(query: string): Promise<MedicalAnalysis> {
-        if (!this.isReady() && !this.status.isMockMode) {
+        if (!this.isReady()) {
             throw new Error('Model not ready. Please initialize first.');
         }
 
         const startTime = Date.now();
-
-        if (this.status.isMockMode) {
-            console.log('Mock Mode: Inferring');
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            return {
-                normalizedSymptoms: ['Headache', 'Nausea', 'Photophobia'],
-                duration: '2 days',
-                severity: 'medium',
-                riskFactors: ['Potential Migraine'],
-                confidenceGaps: ['History of migraines?'],
-                redFlags: [],
-                urgencyScore: 'medium',
-                rawResponse: 'Mock response data',
-                inferenceTime: 2000,
-            };
-        }
 
         try {
             // MedGemma prompt template for medical symptom analysis
@@ -209,7 +182,7 @@ class MedGemmaService {
                 temperature: 0.3, // Lower temperature for medical accuracy
                 top_p: 0.9,
                 top_k: 40,
-                stop: ['</s>', 'Human:', 'User:'],
+                stop: ['</s>', '[/INST]'],
             });
 
             const inferenceTime = Date.now() - startTime;
@@ -229,8 +202,7 @@ class MedGemmaService {
      * Build medical-focused prompt for MedGemma
      */
     private buildMedicalPrompt(query: string): string {
-        return `<start_of_turn>user
-You are a medical AI assistant. Analyze the following patient complaint and provide a structured assessment. DO NOT diagnose or prescribe. Only analyze symptoms.
+        return `<s>[INST] You are a medical AI assistant. Analyze the following patient complaint and provide a structured assessment. DO NOT diagnose or prescribe. Only analyze symptoms.
 
 Patient complaint: ${query}
 
@@ -242,9 +214,7 @@ Please provide:
 5. Red-flag signals (if any)
 6. Recommended urgency level (low/medium/high/emergency)
 
-Keep responses clinical, factual, and structured.
-<end_of_turn>
-<start_of_turn>model
+Keep responses clinical, factual, and structured. [/INST]
 `;
     }
 

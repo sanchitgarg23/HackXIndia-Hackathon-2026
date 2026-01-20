@@ -146,7 +146,7 @@ export default function MedGemmaTestScreen() {
                     </View>
                     <View style={styles.statusTextContainer}>
                         <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
-                        <Text style={styles.statusSubtext}>MedGemma 4B Quantized (Q4_K_M)</Text>
+                        <Text style={styles.statusSubtext}>BioMistral 7B Quantized (Q4_K_M)</Text>
                     </View>
                 </View>
 
@@ -290,7 +290,7 @@ export default function MedGemmaTestScreen() {
 
     return (
         <View style={styles.container}>
-            <Header title="MedGemma Test" showBack />
+            <Header title="Medical AI Test (BioMistral)" showBack />
 
             <ScrollView contentContainerStyle={styles.content}>
                 {/* Status Panel */}
