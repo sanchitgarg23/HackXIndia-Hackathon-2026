@@ -10,7 +10,8 @@ export default function SignupPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    department: ''
+    department: '',
+    role: '' // Clinical role (physician, surgeon, etc.)
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -42,7 +43,9 @@ export default function SignupPage() {
       formData.name,
       formData.email,
       formData.password,
-      formData.department
+      'DOCTOR', // Hardcode DOCTOR since this is "Create Clinical Account"
+      formData.department, // Pass department as 5th arg
+      formData.role // Pass specific role as specialization/job title
     );
     
     if (!result.success) {

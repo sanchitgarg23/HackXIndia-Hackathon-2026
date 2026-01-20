@@ -13,32 +13,23 @@ import {
 } from 'lucide-react-native';
 import { Header, Card, Button } from '../../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
-
-// Mock document data
-const mockDocument = {
-  id: '1',
-  type: 'lab_report',
-  fileName: 'Blood Test Report - Complete CBC',
-  uploadedAt: 'January 15, 2024',
-  analyzedAt: 'January 15, 2024',
-  summary: 'Complete blood count test results. All parameters are within normal range.',
-  status: 'analyzed',
-  extractedData: [
-    { label: 'Hemoglobin', value: '14.2 g/dL', status: 'normal', range: '13.5-17.5' },
-    { label: 'WBC Count', value: '7,500 /µL', status: 'normal', range: '4,500-11,000' },
-    { label: 'Platelet Count', value: '250,000 /µL', status: 'normal', range: '150,000-400,000' },
-    { label: 'RBC Count', value: '4.8 M/µL', status: 'normal', range: '4.5-5.5' },
-  ],
-  aiInsights: [
-    'All blood parameters are within the healthy reference range.',
-    'Hemoglobin levels indicate good oxygen-carrying capacity.',
-    'White blood cell count suggests no active infection.',
-  ],
-};
+import { useHealthStore } from '../../../stores';
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { documents } = useHealthStore();
+
+  const document = documents.find((doc) => (doc.id || doc._id) === id);
+
+  if (!document) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: Colors.dark.text }}>Document not found</Text>
+        <Button title="Go Back" onPress={() => router.back()} style={{ marginTop: Spacing.md }} />
+      </View>
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -66,14 +57,14 @@ export default function DocumentDetailScreen() {
           <View style={styles.docIcon}>
             <FileText size={32} color={Colors.primary[500]} />
           </View>
-          <Text style={styles.docName}>{mockDocument.fileName}</Text>
+          <Text style={styles.docName}>{document.title}</Text>
           <View style={styles.docMeta}>
             <Calendar size={14} color={Colors.dark.textMuted} />
-            <Text style={styles.docDate}>Uploaded on {mockDocument.uploadedAt}</Text>
+            <Text style={styles.docDate}>Uploaded on {document.date}</Text>
           </View>
           <View style={styles.statusBadge}>
             <CheckCircle size={14} color={Colors.success} />
-            <Text style={styles.statusText}>Analyzed</Text>
+            <Text style={styles.statusText}>{document.status}</Text>
           </View>
         </Card>
 
@@ -81,48 +72,54 @@ export default function DocumentDetailScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🤖 AI Summary</Text>
           <Card variant="gradient" style={styles.summaryCard}>
-            <Text style={styles.summaryText}>{mockDocument.summary}</Text>
+            <Text style={styles.summaryText}>
+              {document.data?.summary || 'No summary available.'}
+            </Text>
           </Card>
         </View>
 
         {/* Extracted Data */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Extracted Values</Text>
-          <Card variant="elevated" style={styles.dataCard}>
-            {mockDocument.extractedData.map((item, index) => (
-              <React.Fragment key={item.label}>
-                <View style={styles.dataRow}>
-                  <View style={styles.dataInfo}>
-                    <Text style={styles.dataLabel}>{item.label}</Text>
-                    <Text style={styles.dataRange}>Ref: {item.range}</Text>
+        {document.data?.extractedData && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Extracted Values</Text>
+            <Card variant="elevated" style={styles.dataCard}>
+              {document.data.extractedData.map((item: any, index: number) => (
+                <React.Fragment key={index}>
+                  <View style={styles.dataRow}>
+                    <View style={styles.dataInfo}>
+                      <Text style={styles.dataLabel}>{item.label}</Text>
+                      <Text style={styles.dataRange}>Ref: {item.range}</Text>
+                    </View>
+                    <View style={styles.dataValue}>
+                      <Text style={[styles.valueText, { color: getStatusColor(item.status) }]}>
+                        {item.value}
+                      </Text>
+                      <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+                    </View>
                   </View>
-                  <View style={styles.dataValue}>
-                    <Text style={[styles.valueText, { color: getStatusColor(item.status) }]}>
-                      {item.value}
-                    </Text>
-                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
-                  </View>
-                </View>
-                {index < mockDocument.extractedData.length - 1 && (
-                  <View style={styles.divider} />
-                )}
-              </React.Fragment>
-            ))}
-          </Card>
-        </View>
+                  {index < document.data.extractedData.length - 1 && (
+                    <View style={styles.divider} />
+                  )}
+                </React.Fragment>
+              ))}
+            </Card>
+          </View>
+        )}
 
         {/* AI Insights */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Insights</Text>
-          <Card variant="elevated" style={styles.insightsCard}>
-            {mockDocument.aiInsights.map((insight, index) => (
-              <View key={index} style={styles.insightRow}>
-                <CheckCircle size={16} color={Colors.success} />
-                <Text style={styles.insightText}>{insight}</Text>
-              </View>
-            ))}
-          </Card>
-        </View>
+        {document.data?.aiInsights && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Key Insights</Text>
+            <Card variant="elevated" style={styles.insightsCard}>
+              {document.data.aiInsights.map((insight: string, index: number) => (
+                <View key={index} style={styles.insightRow}>
+                  <CheckCircle size={16} color={Colors.success} />
+                  <Text style={styles.insightText}>{insight}</Text>
+                </View>
+              ))}
+            </Card>
+          </View>
+        )}
 
         {/* Actions */}
         <View style={styles.actionsSection}>
@@ -130,7 +127,7 @@ export default function DocumentDetailScreen() {
             title="Download Original"
             variant="outline"
             icon={<Download size={18} color={Colors.primary[500]} />}
-            onPress={() => {}}
+            onPress={() => { }}
             fullWidth
             style={styles.actionButton}
           />
@@ -138,7 +135,7 @@ export default function DocumentDetailScreen() {
             title="Share with Doctor"
             variant="secondary"
             icon={<Share2 size={18} color={Colors.dark.text} />}
-            onPress={() => {}}
+            onPress={() => { }}
             fullWidth
             style={styles.actionButton}
           />

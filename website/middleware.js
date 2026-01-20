@@ -9,7 +9,7 @@ export async function middleware(request) {
   const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
 
   // Get token from cookie
-  const token = request.cookies.get('auth-token')?.value;
+  const token = request.cookies.get('token')?.value;
 
   // If user is authenticated and trying to access login/signup, redirect to dashboard
   if (token && isPublicPath) {
@@ -29,7 +29,7 @@ export async function middleware(request) {
     const verified = await verifyToken(token);
     if (!verified) {
       const response = NextResponse.redirect(new URL('/login', request.url));
-      response.cookies.delete('auth-token');
+      response.cookies.delete('token');
       return response;
     }
   }

@@ -1,16 +1,75 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from "@/components/Header";
 import FilterBar from "@/components/FilterBar";
 import CaseCard from "@/components/CaseCard";
 import EmptyState from "@/components/EmptyState";
-import { mockCases } from "@/components/mockData";
+import api from "@/lib/api";
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const [cases, setCases] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [urgencyFilter, setUrgencyFilter] = useState("ALL");
+  const router = useRouter();
 
-  const filteredCases = mockCases.filter(c => {
+  useEffect(() => {
+    fetchCases();
+  }, []);
+
+  const fetchCases = async () => {
+    try {
+      // Fetch cases from backend
+      // Note: This endpoint is protected and requires 'DOCTOR' role.
+      // Ensure you are logged in as a doctor.
+      const { data } = await api.get('/cases/doctor/inbox');
+      
+      // Transform backend data to CaseCard format
+      const transformedCases = data.map(kase => ({
+        id: kase._id,
+        name: kase.patientId?.name || 'Unknown',
+        age: kase.patientId?.dob ? calculateAge(kase.patientId.dob) : 'N/A',
+        gender: kase.patientId?.gender || 'Unknown',
+        language: 'English', // Placeholder, not in backend yet
+        priority: kase.priority,
+        status: kase.status,
+        source: kase.inputMode === 'voice' ? 'Voice Call' : 'Symptom Check',
+        narrative: kase.aiAnalysis?.summary || kase.transcript || 'No details provided.',
+        redFlags: kase.aiAnalysis?.redFlags || [],
+        metrics: {
+          urgencyScore: kase.aiAnalysis?.urgencyScore || 0,
+          aiConfidence: kase.aiAnalysis?.confidence || 0,
+          activeTime: timeSince(kase.createdAt),
+          prevAppt: 'None' // Placeholder
+        }
+      }));
+
+      setCases(transformedCases);
+    } catch (error) {
+      console.error('Failed to fetch cases:', error);
+      // If unauthorized, maybe redirect or show error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateAge = (dob) => {
+    const diff = Date.now() - new Date(dob).getTime();
+    const ageDate = new Date(diff);
+    return Math.abs(ageDate.getUTCFullYear() - 1970) + 'y';
+  };
+
+  const timeSince = (date) => {
+    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+    let interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + "h ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + "m ago";
+    return Math.floor(seconds) + "s ago";
+  };
+
+  const filteredCases = cases.filter(c => {
     const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesUrgency = urgencyFilter === "ALL" || c.priority === urgencyFilter;
     return matchesSearch && matchesUrgency;
@@ -23,8 +82,12 @@ export default function Home() {
     if (statusOrder[a.status] !== statusOrder[b.status]) {
       return statusOrder[a.status] - statusOrder[b.status];
     }
-    return priorityOrder[a.priority] - priorityOrder[b.priority];
+    return priorityOrder[a.priority] - priorityOrder[b.priority]; // Small bug in original logic? Priority HIGH(0) < LOW(2). So a-b is standard asc. 0 - 2 = -2 (High comes first). Correct.
   });
+
+  if (loading) {
+    return <div className="p-8 text-center">Loading dashboard...</div>;
+  }
 
   return (
     <div className="dashboard-page">

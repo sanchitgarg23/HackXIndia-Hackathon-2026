@@ -31,7 +31,18 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUserStore();
-  const { healthScore, diagnoses, documents, medications, activeConditions } = useHealthStore();
+  const {
+    healthScore,
+    diagnoses,
+    documents,
+    medications,
+    activeConditions,
+    fetchDashboard
+  } = useHealthStore();
+
+  React.useEffect(() => {
+    fetchDashboard();
+  }, []);
 
   const healthColor = getHealthScoreColor(healthScore);
   const greeting = getGreeting();
@@ -137,19 +148,19 @@ export default function HomeScreen() {
           <View style={styles.statsRow}>
             <StatBox
               icon={<Stethoscope size={20} color={Colors.primary[500]} />}
-              value={diagnoses.length || 12}
+              value={diagnoses.length} // Removed fallback || 12
               label="Diagnoses"
               color={Colors.primary[500]}
             />
             <StatBox
               icon={<FileText size={20} color={Colors.accent[500]} />}
-              value={documents.length || 8}
+              value={documents.length} // Removed fallback || 8
               label="Reports"
               color={Colors.accent[500]}
             />
             <StatBox
               icon={<Pill size={20} color="#F59E0B" />}
-              value={medications.filter(m => m.isActive).length || 3}
+              value={medications.filter(m => m.data.active).length} // Fixed property access
               label="Medicines"
               color="#F59E0B"
             />

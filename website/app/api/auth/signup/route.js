@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { signToken } from '@/lib/auth';
+import connectDB from '@/lib/db';
+import User from '@/models/User';
 
 export async function POST(request) {
   try {
+    await connectDB();
+
     const { name, email, password, department } = await request.json();
 
-    // Mock validation
     if (!name || !email || !password) {
       return NextResponse.json(
         { error: 'All fields are required' },
@@ -13,15 +16,25 @@ export async function POST(request) {
       );
     }
 
-    // Mock user creation - include credentials for demo
-    const user = {
-      id: Date.now().toString(),
+    // Check if user exists
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+        return NextResponse.json(
+            { error: 'User already exists' },
+            { status: 400 }
+        );
+    }
+
+    // Create user
+    const user = await User.create({
       name,
       email,
-      password, // Include password for demo localStorage storage
-      role: 'Physician',
+      password, // Password hashing happens in User model pre-save hook
+      role: 'DOCTOR', // Defaulting to Doctor for website signup
+      specialization: 'General Physician',
+      hospital: 'General Hospital',
       department: department || 'General Medicine'
-    };
+    });
 
     // Generate JWT
     const token = await signToken({ 

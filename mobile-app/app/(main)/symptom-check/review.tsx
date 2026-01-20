@@ -30,27 +30,7 @@ import {
 import { Header, Card, Button } from '../../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
 import { useIntakeStore } from '../../../stores';
-
-// Mock AI analysis result
-const mockAnalysis = {
-  chiefComplaint: 'Persistent headache with mild nausea',
-  symptoms: [
-    { name: 'Headache', location: 'Frontal region', severity: 'moderate', duration: '3 days' },
-    { name: 'Nausea', severity: 'mild', duration: '1 day' },
-    { name: 'Fatigue', severity: 'mild', duration: '2 days' },
-  ],
-  urgencyScore: 4,
-  urgencyLevel: 'medium' as const,
-  riskFactors: ['Stress', 'Lack of sleep'],
-  redFlags: [],
-  recommendations: [
-    { type: 'self_care', title: 'Rest in a quiet, dark room' },
-    { type: 'self_care', title: 'Stay hydrated' },
-    { type: 'self_care', title: 'Take over-the-counter pain relief if needed' },
-  ],
-  escalationLevel: 'teleconsult' as const,
-  confidenceGaps: ['Blood pressure not confirmed'],
-};
+import { medgemmaService } from '../../../services/medgemma-service';
 
 const urgencyColors = {
   low: Colors.urgency.low,
@@ -61,23 +41,68 @@ const urgencyColors = {
 
 export default function SymptomReviewScreen() {
   const router = useRouter();
-  const { clearCurrentIntake } = useIntakeStore();
+  const { currentIntake, updateCurrentIntake, clearCurrentIntake } = useIntakeStore();
   const [isAnalyzing, setIsAnalyzing] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Animation values
   const progressWidth = useSharedValue(0);
   const contentOpacity = useSharedValue(0);
 
   useEffect(() => {
-    // Simulate AI analysis
-    progressWidth.value = withTiming(1, { duration: 2500, easing: Easing.out(Easing.quad) });
-    
-    const timer = setTimeout(() => {
-      setIsAnalyzing(false);
-      contentOpacity.value = withTiming(1, { duration: 500 });
-    }, 2500);
+    let mounted = true;
 
-    return () => clearTimeout(timer);
+    const runAnalysis = async () => {
+      try {
+        // Start animation
+        progressWidth.value = withTiming(0.8, { duration: 2000, easing: Easing.out(Easing.quad) });
+
+        // Ensure model is ready
+        if (!medgemmaService.isReady()) {
+          await medgemmaService.initializeModel();
+        }
+
+        // Prepare query
+        const query = currentIntake.rawTranscript || currentIntake.chiefComplaint || currentIntake.symptoms?.join(', ') || "General checkup";
+
+        // Run inference
+        const analysis = await medgemmaService.inferSymptoms(query);
+
+        if (mounted) {
+          // Complete animation
+          progressWidth.value = withTiming(1, { duration: 500 });
+
+          // Update store
+          updateCurrentIntake({
+            symptoms: analysis.normalizedSymptoms,
+            duration: analysis.duration,
+            severity: analysis.severity,
+            riskFactors: analysis.riskFactors,
+            redFlags: analysis.redFlags,
+            urgencyScore: analysis.urgencyScore === 'low' ? 1 : analysis.urgencyScore === 'medium' ? 5 : analysis.urgencyScore === 'high' ? 8 : 10,
+            escalationLevel: analysis.urgencyScore === 'emergency' ? 'emergency' : analysis.urgencyScore === 'high' ? 'clinic_visit' : analysis.urgencyScore === 'medium' ? 'teleconsult' : 'self_care',
+            recommendations: analysis.recommendations,
+            confidenceGaps: analysis.confidenceGaps,
+          });
+
+          // Show content
+          setTimeout(() => {
+            setIsAnalyzing(false);
+            contentOpacity.value = withTiming(1, { duration: 500 });
+          }, 800);
+        }
+      } catch (err: any) {
+        console.error('Analysis failed:', err);
+        if (mounted) {
+          setError(err.message || "Failed to analyze symptoms");
+          setIsAnalyzing(false);
+        }
+      }
+    };
+
+    runAnalysis();
+
+    return () => { mounted = false; };
   }, []);
 
   const progressAnimatedStyle = useAnimatedStyle(() => ({
@@ -125,7 +150,30 @@ export default function SymptomReviewScreen() {
     );
   }
 
-  const urgencyColor = urgencyColors[mockAnalysis.urgencyLevel];
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Header title="Error" showBack />
+        <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
+          <AlertTriangle size={48} color={Colors.error} />
+          <Text style={{ ...Typography.textStyle.h3, marginTop: 16, textAlign: 'center' }}>Analysis Failed</Text>
+          <Text style={{ ...Typography.textStyle.body, marginTop: 8, textAlign: 'center', color: Colors.dark.textSecondary }}>{error}</Text>
+          <Button title="Try Again" onPress={() => router.back()} style={{ marginTop: 24 }} />
+        </View>
+      </View>
+    )
+  }
+
+  const urgencyLevels = {
+    'low': 'low',
+    'medium': 'medium',
+    'high': 'high',
+    'emergency': 'critical'
+  };
+
+  // Map store urgencyScore (number) back to string level for display if needed, or use escalationLevel
+  const urgencyLevelKey = currentIntake.urgencyScore ? (currentIntake.urgencyScore < 4 ? 'low' : currentIntake.urgencyScore < 7 ? 'medium' : currentIntake.urgencyScore < 9 ? 'high' : 'critical') : 'low';
+  const urgencyColor = urgencyColors[urgencyLevelKey];
 
   return (
     <View style={styles.container}>
@@ -142,9 +190,9 @@ export default function SymptomReviewScreen() {
           style={styles.urgencyBanner}
         >
           <View style={[styles.urgencyIcon, { backgroundColor: urgencyColor }]}>
-            {mockAnalysis.urgencyLevel === 'low' ? (
+            {urgencyLevelKey === 'low' ? (
               <CheckCircle size={24} color="#FFFFFF" />
-            ) : mockAnalysis.urgencyLevel === 'critical' ? (
+            ) : urgencyLevelKey === 'critical' ? (
               <AlertCircle size={24} color="#FFFFFF" />
             ) : (
               <AlertTriangle size={24} color="#FFFFFF" />
@@ -152,9 +200,9 @@ export default function SymptomReviewScreen() {
           </View>
           <View style={styles.urgencyContent}>
             <Text style={[styles.urgencyLabel, { color: urgencyColor }]}>
-              {mockAnalysis.urgencyLevel.toUpperCase()} URGENCY
+              {urgencyLevelKey.toUpperCase()} URGENCY
             </Text>
-            <Text style={styles.urgencyTitle}>{mockAnalysis.chiefComplaint}</Text>
+            <Text style={styles.urgencyTitle}>{currentIntake.chiefComplaint || currentIntake.symptoms?.[0] || 'Symptom Analysis'}</Text>
           </View>
         </LinearGradient>
 
@@ -162,54 +210,53 @@ export default function SymptomReviewScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Identified Symptoms</Text>
           <Card variant="elevated" style={styles.symptomsCard}>
-            {mockAnalysis.symptoms.map((symptom, index) => (
-              <React.Fragment key={symptom.name}>
+            {currentIntake.symptoms?.map((symptom, index) => (
+              <React.Fragment key={index}>
                 <View style={styles.symptomRow}>
                   <View style={styles.symptomInfo}>
-                    <Text style={styles.symptomName}>{symptom.name}</Text>
-                    {'location' in symptom && (
-                      <Text style={styles.symptomDetail}>{symptom.location}</Text>
-                    )}
+                    <Text style={styles.symptomName}>{symptom}</Text>
                   </View>
                   <View style={styles.symptomMeta}>
                     <View style={[
                       styles.severityBadge,
-                      { backgroundColor: 
-                        symptom.severity === 'mild' ? Colors.success + '20' :
-                        symptom.severity === 'moderate' ? Colors.warning + '20' :
-                        Colors.error + '20'
+                      {
+                        backgroundColor:
+                          currentIntake.severity === 'low' ? Colors.success + '20' :
+                            currentIntake.severity === 'medium' ? Colors.warning + '20' :
+                              Colors.error + '20'
                       }
                     ]}>
                       <Text style={[
                         styles.severityText,
-                        { color:
-                          symptom.severity === 'mild' ? Colors.success :
-                          symptom.severity === 'moderate' ? Colors.warning :
-                          Colors.error
+                        {
+                          color:
+                            currentIntake.severity === 'low' ? Colors.success :
+                              currentIntake.severity === 'medium' ? Colors.warning :
+                                Colors.error
                         }
                       ]}>
-                        {symptom.severity}
+                        {currentIntake.severity || 'Unknown'}
                       </Text>
                     </View>
                     <View style={styles.durationBadge}>
                       <Clock size={12} color={Colors.dark.textMuted} />
-                      <Text style={styles.durationText}>{symptom.duration}</Text>
+                      <Text style={styles.durationText}>{currentIntake.duration || 'Unknown duration'}</Text>
                     </View>
                   </View>
                 </View>
-                {index < mockAnalysis.symptoms.length - 1 && <View style={styles.divider} />}
+                {index < (currentIntake.symptoms?.length || 0) - 1 && <View style={styles.divider} />}
               </React.Fragment>
             ))}
           </Card>
         </View>
 
         {/* Risk Factors */}
-        {mockAnalysis.riskFactors.length > 0 && (
+        {currentIntake.riskFactors && currentIntake.riskFactors.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Contributing Factors</Text>
             <View style={styles.tagsContainer}>
-              {mockAnalysis.riskFactors.map((factor) => (
-                <View key={factor} style={styles.tag}>
+              {currentIntake.riskFactors.map((factor, index) => (
+                <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>{factor}</Text>
                 </View>
               ))}
@@ -218,17 +265,19 @@ export default function SymptomReviewScreen() {
         )}
 
         {/* Recommendations */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recommendations</Text>
-          <Card variant="elevated" style={styles.recommendationsCard}>
-            {mockAnalysis.recommendations.map((rec, index) => (
-              <View key={index} style={styles.recommendationRow}>
-                <CheckCircle size={18} color={Colors.success} />
-                <Text style={styles.recommendationText}>{rec.title}</Text>
-              </View>
-            ))}
-          </Card>
-        </View>
+        {currentIntake.recommendations && currentIntake.recommendations.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Recommendations</Text>
+            <Card variant="elevated" style={styles.recommendationsCard}>
+              {currentIntake.recommendations.map((rec, index) => (
+                <View key={index} style={styles.recommendationRow}>
+                  <CheckCircle size={18} color={rec.type === 'medical' ? Colors.warning : Colors.success} />
+                  <Text style={styles.recommendationText}>{rec.title}</Text>
+                </View>
+              ))}
+            </Card>
+          </View>
+        )}
 
         {/* Suggested Next Step */}
         <View style={styles.section}>
@@ -239,9 +288,9 @@ export default function SymptomReviewScreen() {
               style={styles.actionCard}
             >
               <View style={styles.actionIcon}>
-                {mockAnalysis.escalationLevel === 'teleconsult' ? (
+                {currentIntake.escalationLevel === 'teleconsult' ? (
                   <Video size={28} color={Colors.primary[500]} />
-                ) : mockAnalysis.escalationLevel === 'clinic_visit' ? (
+                ) : currentIntake.escalationLevel === 'clinic_visit' ? (
                   <Building2 size={28} color={Colors.primary[500]} />
                 ) : (
                   <CheckCircle size={28} color={Colors.success} />
@@ -249,14 +298,16 @@ export default function SymptomReviewScreen() {
               </View>
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>
-                  {mockAnalysis.escalationLevel === 'teleconsult'
+                  {currentIntake.escalationLevel === 'teleconsult'
                     ? 'Book a Teleconsult'
-                    : mockAnalysis.escalationLevel === 'clinic_visit'
-                    ? 'Schedule a Clinic Visit'
-                    : 'Self-Care Recommended'}
+                    : currentIntake.escalationLevel === 'clinic_visit'
+                      ? 'Schedule a Clinic Visit'
+                      : currentIntake.escalationLevel === 'emergency'
+                        ? 'Go to Emergency Room'
+                        : 'Self-Care Recommended'}
                 </Text>
                 <Text style={styles.actionSubtitle}>
-                  {mockAnalysis.escalationLevel === 'self_care'
+                  {currentIntake.escalationLevel === 'self_care'
                     ? 'Monitor symptoms and follow recommendations'
                     : 'Consult with a doctor for proper evaluation'}
                 </Text>
@@ -267,14 +318,14 @@ export default function SymptomReviewScreen() {
         </View>
 
         {/* Confidence Gaps */}
-        {mockAnalysis.confidenceGaps.length > 0 && (
+        {currentIntake.confidenceGaps && currentIntake.confidenceGaps.length > 0 && (
           <View style={styles.section}>
             <Card variant="outlined" style={styles.gapsCard}>
               <Info size={18} color={Colors.info} />
               <View style={styles.gapsContent}>
                 <Text style={styles.gapsTitle}>Additional Info Needed</Text>
                 <Text style={styles.gapsText}>
-                  {mockAnalysis.confidenceGaps.join(', ')}
+                  {currentIntake.confidenceGaps.join(', ')}
                 </Text>
               </View>
             </Card>

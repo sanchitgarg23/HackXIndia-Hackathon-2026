@@ -18,8 +18,8 @@ import { useAppStore, useUserStore } from '../../stores';
 export default function LoginScreen() {
   const router = useRouter();
   const { setOnboardingComplete } = useAppStore();
-  const { setUser } = useUserStore();
-  
+  const { login } = useUserStore(); // Destructure login action properly
+
   const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -27,39 +27,31 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
+    if (!password || (loginMethod === 'email' && !email) || (loginMethod === 'phone' && !phone)) {
+      alert('Please fill in all fields'); // Simple alert for now
+      return;
+    }
+
     setIsLoading(true);
-    // Simulate login - in production, this would call the auth API
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    // Mock user data
-    setUser({
-      id: '1',
-      name: 'Demo User',
-      email: email || 'demo@medassist.com',
-      phone: phone || '+91 98765 43210',
-      language: 'en',
-      allergies: [],
-      chronicConditions: [],
-      isOnboarded: true,
-    });
-    
-    setOnboardingComplete();
-    setIsLoading(false);
-    router.replace('/(main)');
+    try {
+      await login({
+        email: loginMethod === 'email' ? email : undefined,
+        // Phone login not fully supported in backend yet, defaulting to email logic
+        password
+      });
+
+      setOnboardingComplete(); // Or check if user is already onboarded from backend
+      router.replace('/(main)');
+    } catch (error: any) {
+      console.error(error);
+      alert(error.response?.data?.message || 'Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGuestLogin = () => {
-    setUser({
-      id: 'guest',
-      name: 'Guest User',
-      email: 'guest@medassist.com',
-      language: 'en',
-      allergies: [],
-      chronicConditions: [],
-      isOnboarded: true,
-    });
-    setOnboardingComplete();
-    router.replace('/(main)');
+    alert("Guest login is temporarily disabled for beta testing.");
   };
 
   return (

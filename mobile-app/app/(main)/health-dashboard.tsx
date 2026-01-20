@@ -33,35 +33,25 @@ import { useHealthStore } from '../../stores';
 const { width } = Dimensions.get('window');
 
 // Mock data for the health dashboard
-const mockData = {
-  healthScore: 85,
-  vitals: [
-    { id: '1', type: 'blood_pressure', label: 'Blood Pressure', value: '120/80', unit: 'mmHg', trend: 'stable', lastUpdated: '2h ago' },
-    { id: '2', type: 'heart_rate', label: 'Heart Rate', value: '72', unit: 'bpm', trend: 'up', lastUpdated: '2h ago' },
-    { id: '3', type: 'blood_sugar', label: 'Blood Sugar', value: '95', unit: 'mg/dL', trend: 'down', lastUpdated: '6h ago' },
-    { id: '4', type: 'weight', label: 'Weight', value: '68', unit: 'kg', trend: 'stable', lastUpdated: '1d ago' },
-  ],
-  activeConditions: [
-    { id: '1', name: 'Hypertension', status: 'managed', since: 'Jan 2023' },
-    { id: '2', name: 'Seasonal Allergies', status: 'active', since: 'Mar 2024' },
-  ],
-  medications: [
-    { id: '1', name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily', nextDose: '8:00 AM' },
-    { id: '2', name: 'Vitamin D3', dosage: '1000 IU', frequency: 'Once daily', nextDose: '8:00 AM' },
-    { id: '3', name: 'Cetirizine', dosage: '10mg', frequency: 'As needed', nextDose: null },
-  ],
-  recentDiagnoses: [
-    { id: '1', condition: 'Mild Flu', date: 'Jan 15, 2024', severity: 'low', status: 'resolved' },
-    { id: '2', condition: 'Tension Headache', date: 'Jan 10, 2024', severity: 'low', status: 'resolved' },
-    { id: '3', condition: 'Allergic Rhinitis', date: 'Dec 28, 2023', severity: 'medium', status: 'monitoring' },
-  ],
-};
+
 
 export default function HealthDashboardScreen() {
   const router = useRouter();
-  const { healthScore } = useHealthStore();
-  
-  const score = healthScore || mockData.healthScore;
+  const {
+    healthScore,
+    vitals,
+    activeConditions,
+    medications,
+    diagnoses,
+    fetchDashboard,
+    isLoading
+  } = useHealthStore();
+
+  React.useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+  const score = healthScore || 0;
   const healthColor = getHealthScoreColor(score);
 
   const getTrendIcon = (trend: string) => {
@@ -75,40 +65,28 @@ export default function HealthDashboardScreen() {
     }
   };
 
-  const getVitalIcon = (type: string) => {
-    switch (type) {
-      case 'blood_pressure':
-        return <Activity size={20} color={Colors.error} />;
-      case 'heart_rate':
-        return <Heart size={20} color={Colors.primary[500]} />;
-      case 'blood_sugar':
-        return <Droplets size={20} color={Colors.accent[500]} />;
-      case 'weight':
-        return <Scale size={20} color="#8B5CF6" />;
-      default:
-        return <Activity size={20} color={Colors.dark.textMuted} />;
-    }
+  const getVitalIcon = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes('pressure')) return <Activity size={20} color={Colors.error} />;
+    if (t.includes('heart') || t.includes('rate')) return <Heart size={20} color={Colors.primary[500]} />;
+    if (t.includes('sugar') || t.includes('glucose')) return <Droplets size={20} color={Colors.accent[500]} />;
+    if (t.includes('weight')) return <Scale size={20} color="#8B5CF6" />;
+    return <Activity size={20} color={Colors.dark.textMuted} />;
   };
 
-  const getVitalColor = (type: string) => {
-    switch (type) {
-      case 'blood_pressure':
-        return Colors.error;
-      case 'heart_rate':
-        return Colors.primary[500];
-      case 'blood_sugar':
-        return Colors.accent[500];
-      case 'weight':
-        return '#8B5CF6';
-      default:
-        return Colors.dark.textMuted;
-    }
+  const getVitalColor = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes('pressure')) return Colors.error;
+    if (t.includes('heart')) return Colors.primary[500];
+    if (t.includes('sugar')) return Colors.accent[500];
+    if (t.includes('weight')) return '#8B5CF6';
+    return Colors.dark.textMuted;
   };
 
   return (
     <View style={styles.container}>
       <Header title="Health Dashboard" showBack />
-      
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -150,19 +128,19 @@ export default function HealthDashboardScreen() {
             </Pressable>
           </View>
           <View style={styles.vitalsGrid}>
-            {mockData.vitals.map((vital) => (
-              <Card key={vital.id} variant="elevated" style={styles.vitalCard}>
-                <View style={[styles.vitalIcon, { backgroundColor: getVitalColor(vital.type) + '20' }]}>
-                  {getVitalIcon(vital.type)}
+            {vitals.map((vital, index) => (
+              <Card key={vital._id || index} variant="elevated" style={styles.vitalCard}>
+                <View style={[styles.vitalIcon, { backgroundColor: getVitalColor(vital.title) + '20' }]}>
+                  {getVitalIcon(vital.title)}
                 </View>
-                <Text style={styles.vitalLabel}>{vital.label}</Text>
+                <Text style={styles.vitalLabel}>{vital.title}</Text>
                 <View style={styles.vitalValueRow}>
-                  <Text style={styles.vitalValue}>{vital.value}</Text>
-                  <Text style={styles.vitalUnit}>{vital.unit}</Text>
+                  <Text style={styles.vitalValue}>{vital.data.value}</Text>
+                  <Text style={styles.vitalUnit}>{vital.data.unit}</Text>
                 </View>
                 <View style={styles.vitalMeta}>
-                  {getTrendIcon(vital.trend)}
-                  <Text style={styles.vitalTime}>{vital.lastUpdated}</Text>
+                  {getTrendIcon(vital.data.trend)}
+                  <Text style={styles.vitalTime}>{new Date(vital.date).toLocaleDateString()}</Text>
                 </View>
               </Card>
             ))}
@@ -173,32 +151,33 @@ export default function HealthDashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Active Conditions</Text>
           <Card variant="elevated" style={styles.conditionsCard}>
-            {mockData.activeConditions.map((condition, index) => (
-              <React.Fragment key={condition.id}>
+            {activeConditions.length === 0 && <Text style={{ color: Colors.dark.textMuted, textAlign: 'center' }}>No active conditions</Text>}
+            {activeConditions.map((condition, index) => (
+              <React.Fragment key={index}>
                 <View style={styles.conditionRow}>
                   <View style={styles.conditionInfo}>
                     <View style={[
                       styles.conditionDot,
-                      { backgroundColor: condition.status === 'managed' ? Colors.success : Colors.warning }
+                      { backgroundColor: Colors.warning }
                     ]} />
                     <View>
-                      <Text style={styles.conditionName}>{condition.name}</Text>
-                      <Text style={styles.conditionSince}>Since {condition.since}</Text>
+                      <Text style={styles.conditionName}>{condition}</Text>
+                      <Text style={styles.conditionSince}>Active</Text>
                     </View>
                   </View>
                   <View style={[
                     styles.conditionBadge,
-                    { backgroundColor: condition.status === 'managed' ? Colors.success + '20' : Colors.warning + '20' }
+                    { backgroundColor: Colors.warning + '20' }
                   ]}>
                     <Text style={[
                       styles.conditionStatus,
-                      { color: condition.status === 'managed' ? Colors.success : Colors.warning }
+                      { color: Colors.warning }
                     ]}>
-                      {condition.status.charAt(0).toUpperCase() + condition.status.slice(1)}
+                      Ongoing
                     </Text>
                   </View>
                 </View>
-                {index < mockData.activeConditions.length - 1 && <View style={styles.divider} />}
+                {index < activeConditions.length - 1 && <View style={styles.divider} />}
               </React.Fragment>
             ))}
           </Card>
@@ -213,24 +192,24 @@ export default function HealthDashboardScreen() {
             </Pressable>
           </View>
           <Card variant="elevated" style={styles.medicationsCard}>
-            {mockData.medications.map((med, index) => (
-              <React.Fragment key={med.id}>
+            {medications.length === 0 && <Text style={{ color: Colors.dark.textMuted, textAlign: 'center' }}>No active medications</Text>}
+            {medications.map((med, index) => (
+              <React.Fragment key={med._id || index}>
                 <View style={styles.medicationRow}>
                   <View style={[styles.medIcon, { backgroundColor: Colors.warning + '20' }]}>
                     <Pill size={18} color={Colors.warning} />
                   </View>
                   <View style={styles.medInfo}>
-                    <Text style={styles.medName}>{med.name}</Text>
-                    <Text style={styles.medDosage}>{med.dosage} • {med.frequency}</Text>
+                    <Text style={styles.medName}>{med.title}</Text>
+                    <Text style={styles.medDosage}>{med.data.dosage} • {med.data.frequency}</Text>
                   </View>
-                  {med.nextDose && (
-                    <View style={styles.nextDose}>
-                      <Clock size={12} color={Colors.primary[500]} />
-                      <Text style={styles.nextDoseText}>{med.nextDose}</Text>
-                    </View>
-                  )}
+                  {/* Mock next dose logic */}
+                  <View style={styles.nextDose}>
+                    <Clock size={12} color={Colors.primary[500]} />
+                    <Text style={styles.nextDoseText}>8:00 AM</Text>
+                  </View>
                 </View>
-                {index < mockData.medications.length - 1 && <View style={styles.divider} />}
+                {index < medications.length - 1 && <View style={styles.divider} />}
               </React.Fragment>
             ))}
           </Card>
@@ -244,32 +223,33 @@ export default function HealthDashboardScreen() {
               <Text style={styles.seeAll}>View All</Text>
             </Pressable>
           </View>
-          {mockData.recentDiagnoses.map((diagnosis) => (
-            <Card key={diagnosis.id} variant="elevated" style={styles.diagnosisCard}>
+          {diagnoses.length === 0 && <Text style={{ color: Colors.dark.textMuted, textAlign: 'center' }}>No recent diagnoses</Text>}
+          {diagnoses.map((diagnosis, index) => (
+            <Card key={diagnosis._id || index} variant="elevated" style={styles.diagnosisCard}>
               <View style={styles.diagnosisRow}>
                 <View style={[
                   styles.diagnosisIcon,
-                  { backgroundColor: diagnosis.status === 'resolved' ? Colors.success + '20' : Colors.warning + '20' }
+                  { backgroundColor: diagnosis.data.status === 'resolved' ? Colors.success + '20' : Colors.warning + '20' }
                 ]}>
-                  {diagnosis.status === 'resolved' ? (
+                  {diagnosis.data.status === 'resolved' ? (
                     <CheckCircle size={18} color={Colors.success} />
                   ) : (
                     <AlertTriangle size={18} color={Colors.warning} />
                   )}
                 </View>
                 <View style={styles.diagnosisInfo}>
-                  <Text style={styles.diagnosisName}>{diagnosis.condition}</Text>
-                  <Text style={styles.diagnosisDate}>{diagnosis.date}</Text>
+                  <Text style={styles.diagnosisName}>{diagnosis.title}</Text>
+                  <Text style={styles.diagnosisDate}>{new Date(diagnosis.date).toLocaleDateString()}</Text>
                 </View>
                 <View style={[
                   styles.diagnosisBadge,
-                  { backgroundColor: diagnosis.status === 'resolved' ? Colors.success + '20' : Colors.warning + '20' }
+                  { backgroundColor: diagnosis.data.status === 'resolved' ? Colors.success + '20' : Colors.warning + '20' }
                 ]}>
                   <Text style={[
                     styles.diagnosisStatus,
-                    { color: diagnosis.status === 'resolved' ? Colors.success : Colors.warning }
+                    { color: diagnosis.data.status === 'resolved' ? Colors.success : Colors.warning }
                   ]}>
-                    {diagnosis.status.charAt(0).toUpperCase() + diagnosis.status.slice(1)}
+                    {diagnosis.data.status ? (diagnosis.data.status.charAt(0).toUpperCase() + diagnosis.data.status.slice(1)) : 'Active'}
                   </Text>
                 </View>
               </View>

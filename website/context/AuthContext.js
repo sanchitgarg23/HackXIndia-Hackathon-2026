@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
 import { useRouter } from 'next/navigation';
+import api from '../lib/api';
 
 const AuthContext = createContext({});
 
@@ -13,91 +14,66 @@ export function AuthProvider({ children }) {
   const router = useRouter();
 
   useEffect(() => {
-    // Check for existing session
-    const storedUser = localStorage.getItem('user');
-    const token = Cookies.get('auth-token');
-    
-    if (storedUser && token) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    checkUserLoggedIn();
   }, []);
+
+  const checkUserLoggedIn = async () => {
+    const token = Cookies.get('token');
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      console.log('Fetching user data...');
+      const { data } = await api.get('/auth/me');
+      console.log('User data fetched:', data);
+      setUser(data.data || data); // Handle both {data: user} or {user} depending on backend
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      // Cookies.remove('token'); // TEMPORARILY COMMENTED OUT to see if token persists
+      // setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const login = async (email, password) => {
     try {
-      // Get stored credentials from localStorage for validation
-      const storedUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
+      console.log('Attempting login...');
+      const { data } = await api.post('/auth/login', { email, password });
+      console.log('Login response:', data);
       
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          password,
-          storedCredentials: storedUsers 
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
-
-      // Store user data
-      setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      Cookies.set('token', data.token, { expires: 30 }); // 30 days
+      console.log('Token set in cookie:', data.token);
       
-      // If this is a new user (credentials returned), add to registered users
-      if (data.credentials) {
-        const updatedUsers = [...storedUsers, data.user];
-        localStorage.setItem('registeredUsers', JSON.stringify(updatedUsers));
-      }
+      // Fetch user data after successful login
+      await checkUserLoggedIn();
       
-      router.push('/');
+      console.log('Navigating to dashboard...');
+      router.push('/dashboard');
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+       return { success: false, error: error.response?.data?.error || 'Login failed' };
     }
   };
 
-  const signup = async (name, email, password, department) => {
+  const signup = async (name, email, password, role = 'PATIENT', department = '', specialization = '') => {
     try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, department }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Signup failed');
-      }
-
-      // Store user data
-      setUser(data.user);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      
-      // Add to registered users in localStorage for demo
-      const storedUsers = JSON.parse(localStorage.getItem('registeredUsers') || '[]');
-      storedUsers.push(data.user);
-      localStorage.setItem('registeredUsers', JSON.stringify(storedUsers));
-      
-      router.push('/');
+      // Backend expects: name, email, password, role
+      const { data } = await api.post('/auth/register', { name, email, password, role, department, specialization });
+       Cookies.set('token', data.token, { expires: 30 });
+       await checkUserLoggedIn();
+       router.push('/dashboard');
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message };
+      return { success: false, error: error.response?.data?.error || 'Signup failed' };
     }
   };
 
-  const logout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
+  const logout = () => {
+    Cookies.remove('token');
     setUser(null);
-    localStorage.removeItem('user');
-    // Note: We keep registeredUsers in localStorage so credentials persist
-    // To fully reset demo, user can clear browser data
-    Cookies.remove('auth-token');
     router.push('/login');
   };
 

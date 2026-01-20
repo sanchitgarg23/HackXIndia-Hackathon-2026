@@ -110,6 +110,13 @@ export const Typography = {
     normal: 1.5,
     relaxed: 1.75,
   },
+  textStyle: {
+    h1: { fontSize: 30, fontWeight: 'bold' as const },
+    h2: { fontSize: 24, fontWeight: 'bold' as const },
+    h3: { fontSize: 20, fontWeight: '600' as const },
+    body: { fontSize: 16, fontWeight: 'normal' as const },
+    caption: { fontSize: 12, fontWeight: 'normal' as const },
+  }
 };
 
 export const Spacing = {

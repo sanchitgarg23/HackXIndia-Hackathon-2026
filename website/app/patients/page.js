@@ -2,12 +2,53 @@
 import React from 'react';
 import Link from 'next/link';
 import { User, ChevronRight, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
-import { mockCases } from "@/components/mockData";
 import Header from "@/components/Header";
+import api from "@/lib/api";
 
 export default function PatientsPage() {
-  // Extracting unique patients from mockCases if possible, but since each case is a unique patient here:
-  const patients = mockCases;
+  const [patients, setPatients] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const { data } = await api.get('/cases/doctor/inbox');
+      // Extract unique patients from cases
+      const uniquePatients = [];
+      const seenIds = new Set();
+      
+      data.forEach(kase => {
+        if (kase.patientId && !seenIds.has(kase.patientId._id)) {
+          seenIds.add(kase.patientId._id);
+          uniquePatients.push({
+            id: kase.patientId._id,
+            name: kase.patientId.name || 'Unknown',
+            age: kase.patientId.dob ? calculateAge(kase.patientId.dob) : 'N/A',
+            gender: kase.patientId.gender || 'Unknown',
+            priority: kase.priority // Just taking priority of most recent case? Or highest? 
+            // For now, let's just use the case priority as a proxy for "current status"
+          });
+        }
+      });
+      setPatients(uniquePatients);
+    } catch (error) {
+      console.error("Failed to fetch patients", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateAge = (dob) => {
+    const diff = Date.now() - new Date(dob).getTime();
+    const ageDate = new Date(diff);
+    return Math.abs(ageDate.getUTCFullYear() - 1970) + 'y';
+  };
+
+  if (loading) return <div className="p-8">Loading patients...</div>;
+
 
   const getRiskIcon = (priority) => {
     switch (priority) {

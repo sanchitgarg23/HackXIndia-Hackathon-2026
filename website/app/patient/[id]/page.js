@@ -2,13 +2,59 @@
 import React, { use } from 'react';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { mockCases } from "@/components/mockData";
+import api from "@/lib/api";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import TimelineGrid from "@/components/profile/TimelineGrid";
 
 export default function PatientProfilePage({ params }) {
   const unwrappedParams = use(params);
-  const patient = mockCases.find(c => c.id === parseInt(unwrappedParams.id)) || mockCases[0];
+  const [patient, setPatient] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const fetchPatient = async () => {
+      try {
+        const { data } = await api.get(`/patients/${unwrappedParams.id}`);
+        // Map backend data to what components expect
+        const mappedPatient = {
+          id: data._id,
+          name: data.name,
+          age: data.dob ? calculateAge(data.dob) : 'N/A',
+          gender: data.gender || 'Unknown',
+          language: data.settings?.language || 'English',
+          email: data.email,
+          phone: data.emergencyContact?.phone || 'N/A',
+          emergencyContact: data.emergencyContact || {},
+          chronicConditions: data.chronicConditions || [],
+          allergies: data.allergies || [],
+          cases: data.cases.map(c => ({
+            id: c._id,
+            status: c.status,
+            priority: c.priority,
+            date: new Date(c.createdAt).toLocaleDateString(),
+            title: c.aiAnalysis?.summary || 'Case Report'
+          })),
+          records: data.records || [],
+          medications: [], // Filter from records if needed
+        };
+        setPatient(mappedPatient);
+      } catch (error) {
+        console.error("Failed to fetch patient", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPatient();
+  }, [unwrappedParams.id]);
+
+  const calculateAge = (dob) => {
+    const diff = Date.now() - new Date(dob).getTime();
+    const ageDate = new Date(diff);
+    return Math.abs(ageDate.getUTCFullYear() - 1970);
+  };
+
+  if(loading) return <div className="p-8">Loading profile...</div>;
+  if(!patient) return <div className="p-8">Patient not found</div>;
 
   return (
     <div className="profile-page-container">

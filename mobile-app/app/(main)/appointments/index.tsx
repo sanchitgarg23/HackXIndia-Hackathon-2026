@@ -21,56 +21,26 @@ import {
 } from 'lucide-react-native';
 import { PageHeader, Card, Button } from '../../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
+import { useHealthStore } from '../../../stores';
 
-const mockAppointments = {
-  upcoming: [
-    {
-      id: '1',
-      type: 'teleconsult',
-      doctorName: 'Dr. Priya Sharma',
-      specialty: 'General Physician',
-      date: '2024-01-22',
-      time: '10:00 AM',
-      status: 'confirmed',
-    },
-    {
-      id: '2',
-      type: 'clinic',
-      doctorName: 'Dr. Rajesh Kumar',
-      specialty: 'Cardiologist',
-      date: '2024-01-25',
-      time: '3:30 PM',
-      location: 'Apollo Clinic, Sector 17',
-      status: 'confirmed',
-    },
-  ],
-  past: [
-    {
-      id: '3',
-      type: 'teleconsult',
-      doctorName: 'Dr. Anita Singh',
-      specialty: 'Dermatologist',
-      date: '2024-01-10',
-      time: '11:00 AM',
-      status: 'completed',
-    },
-    {
-      id: '4',
-      type: 'clinic',
-      doctorName: 'Dr. Priya Sharma',
-      specialty: 'General Physician',
-      date: '2024-01-05',
-      time: '4:00 PM',
-      status: 'completed',
-    },
-  ],
-};
+
 
 export default function AppointmentsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
+  const { appointments, fetchAppointments, isLoading } = useHealthStore();
 
-  const appointments = activeTab === 'upcoming' ? mockAppointments.upcoming : mockAppointments.past;
+  React.useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const sortedAppointments = React.useMemo(() => {
+    const upcoming = appointments.filter(a => new Date(a.date) > new Date()).concat([]);
+    const past = appointments.filter(a => new Date(a.date) <= new Date()).concat([]);
+    return { upcoming, past };
+  }, [appointments]);
+
+  const currentAppointments = activeTab === 'upcoming' ? sortedAppointments.upcoming : sortedAppointments.past;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -87,8 +57,8 @@ export default function AppointmentsScreen() {
     }
   };
 
-  const renderAppointment = ({ item }: { item: typeof mockAppointments.upcoming[0] }) => (
-    <Pressable onPress={() => router.push(`/(main)/appointments/${item.id}`)}>
+  const renderAppointment = ({ item }: { item: any }) => (
+    <Pressable onPress={() => router.push(`/(main)/appointments/${item.id || item._id}`)}>
       <Card variant="elevated" style={styles.appointmentCard}>
         <View style={styles.appointmentHeader}>
           <View style={styles.typeContainer}>
@@ -147,7 +117,7 @@ export default function AppointmentsScreen() {
               <Button
                 title="Join Call"
                 size="sm"
-                onPress={() => {}}
+                onPress={() => { }}
                 icon={<Video size={16} color="#FFFFFF" />}
                 style={{ flex: 1, marginRight: Spacing.sm }}
               />
@@ -169,7 +139,7 @@ export default function AppointmentsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <PageHeader
         title="Appointments"
-        subtitle={`${mockAppointments.upcoming.length} upcoming visits`}
+        subtitle={`${appointments.filter(a => new Date(a.date) > new Date()).length} upcoming visits`}
         rightAction={
           <Pressable
             style={styles.addButton}

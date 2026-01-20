@@ -2,19 +2,45 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { Calendar, Clock, MapPin, User, ChevronRight, CheckCircle2, AlertCircle } from 'lucide-react';
-import { mockCases } from "@/components/mockData";
 import Header from "@/components/Header";
+import api from "@/lib/api";
 
 export default function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState('upcoming');
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Derive appointments from mock data
-  const appointments = mockCases.flatMap(c => {
-    return [
-      ...c.appointments.upcoming.map(app => ({ ...app, patientId: c.id, patientName: c.name, type: 'upcoming', priority: c.priority })),
-      ...c.appointments.past.map(app => ({ ...app, patientId: c.id, patientName: c.name, type: 'past', priority: c.priority }))
-    ];
-  });
+  React.useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const fetchAppointments = async () => {
+    try {
+      const { data } = await api.get('/appointments');
+      const now = new Date();
+      
+      const mappedAppointments = data.map(app => ({
+        id: app._id,
+        patientId: app.patientId?._id,
+        patientName: app.patientId?.name || 'Unknown',
+        type: new Date(app.date) > now ? 'upcoming' : 'past',
+        priority: 'MODERATE', // Default as appointments don't have priority field in backend model yet
+        status: app.status,
+        date: new Date(app.date).toLocaleDateString(),
+        time: app.time,
+        dept: app.location || 'Cardiology', // Default or from backend
+        notes: app.notes
+      }));
+      
+      setAppointments(mappedAppointments);
+    } catch (error) {
+      console.error("Failed to fetch appointments", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) return <div className="p-8">Loading appointments...</div>;
 
   const filteredAppointments = appointments.filter(app => app.type === activeTab);
 

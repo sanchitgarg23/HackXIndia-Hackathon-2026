@@ -2,7 +2,7 @@ import { initLlama, LlamaContext } from 'llama.rn';
 import * as FileSystem from 'expo-file-system/legacy';
 
 // Enable mock mode for testing UI without downloading the actual model
-const MOCK_MODE = true;
+const MOCK_MODE = false;
 
 // LLaVA-v1.5-7B Multimodal Configuration
 const MODEL_CONFIG = {
@@ -26,6 +26,7 @@ export interface MedicalAnalysis {
     riskFactors: string[];
     confidenceGaps: string[];
     redFlags: string[];
+    recommendations: { type: 'self_care' | 'medical'; title: string }[];
     urgencyScore: 'low' | 'medium' | 'high' | 'emergency';
     rawResponse: string;
     inferenceTime: number;
@@ -292,6 +293,7 @@ class MedGemmaService {
             riskFactors: [],
             confidenceGaps: [],
             redFlags: [],
+            recommendations: [],
             urgencyScore: 'low',
             rawResponse: 'Mock response generated.',
             inferenceTime: 1250,
@@ -350,6 +352,7 @@ Please provide:
 4. Any confidence gaps
 5. Red-flag signals (CRITICAL)
 6. Recommended urgency level (low/medium/high/emergency)
+7. Recommendations (Self-care or medical attention triggers)
 
 Keep responses clinical, factual, and structured.
 ASSISTANT:`;
@@ -367,6 +370,7 @@ ASSISTANT:`;
             riskFactors: [],
             confidenceGaps: [],
             redFlags: [],
+            recommendations: [],
             urgencyScore: 'medium',
             rawResponse: text,
             inferenceTime,
@@ -419,6 +423,20 @@ ASSISTANT:`;
                     .split(/\n-|\n\d\./)
                     .map(s => s.trim())
                     .filter(s => s.length > 0);
+            }
+
+            // Parse recommendations
+            const recsMatch = text.match(/(?:Recommendations?|Actions?):\s*([^\n]+(?:\n-[^\n]+)*)/i);
+            if (recsMatch) {
+                const recsRaw = recsMatch[1]
+                    .split(/\n-|\n\d\./)
+                    .map(s => s.trim())
+                    .filter(s => s.length > 0);
+
+                analysis.recommendations = recsRaw.map(r => ({
+                    type: r.toLowerCase().includes('consult') || r.toLowerCase().includes('doctor') ? 'medical' : 'self_care',
+                    title: r
+                }));
             }
 
             // Parse urgency

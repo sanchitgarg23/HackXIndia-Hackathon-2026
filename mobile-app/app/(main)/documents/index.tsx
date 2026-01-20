@@ -29,51 +29,21 @@ const documentTypes = [
   { id: 'scan_image', label: 'Scans', icon: Image },
 ];
 
-// Mock documents for UI
-const mockDocuments = [
-  {
-    id: '1',
-    type: 'lab_report',
-    fileName: 'Blood Test Report',
-    uploadedAt: '2024-01-15',
-    summary: 'Complete blood count - All parameters normal',
-    status: 'analyzed',
-  },
-  {
-    id: '2',
-    type: 'prescription',
-    fileName: 'Dr. Sharma Prescription',
-    uploadedAt: '2024-01-10',
-    summary: 'Paracetamol 500mg, Vitamin D3',
-    status: 'analyzed',
-  },
-  {
-    id: '3',
-    type: 'scan_image',
-    fileName: 'Chest X-Ray',
-    uploadedAt: '2024-01-05',
-    summary: 'No abnormalities detected',
-    status: 'analyzed',
-  },
-  {
-    id: '4',
-    type: 'lab_report',
-    fileName: 'Thyroid Panel',
-    uploadedAt: '2024-01-02',
-    summary: 'TSH levels slightly elevated',
-    status: 'pending_review',
-  },
-];
+
 
 export default function DocumentsScreen() {
   const router = useRouter();
-  const { documents } = useHealthStore();
+  const { documents, fetchDashboard } = useHealthStore();
   const [selectedType, setSelectedType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredDocs = mockDocuments.filter((doc) => {
+  React.useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+  const filteredDocs = documents.filter((doc) => {
     if (selectedType !== 'all' && doc.type !== selectedType) return false;
-    if (searchQuery && !doc.fileName.toLowerCase().includes(searchQuery.toLowerCase())) {
+    if (searchQuery && !doc.title.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
     return true;
@@ -106,24 +76,24 @@ export default function DocumentsScreen() {
     }
   };
 
-  const renderDocument = ({ item }: { item: typeof mockDocuments[0] }) => (
-    <Pressable onPress={() => router.push(`/(main)/documents/${item.id}`)}>
+  const renderDocument = ({ item }: { item: any }) => (
+    <Pressable onPress={() => router.push(`/(main)/documents/${item.id || item._id}`)}>
       <Card variant="elevated" style={styles.documentCard}>
         <View style={styles.documentRow}>
           <View style={[styles.documentIcon, { backgroundColor: getTypeColor(item.type) + '20' }]}>
             {getTypeIcon(item.type)}
           </View>
           <View style={styles.documentContent}>
-            <Text style={styles.documentName}>{item.fileName}</Text>
+            <Text style={styles.documentName}>{item.title}</Text>
             <Text style={styles.documentSummary} numberOfLines={1}>
-              {item.summary}
+              {item.type}
             </Text>
             <View style={styles.documentMeta}>
               <Clock size={12} color={Colors.dark.textMuted} />
-              <Text style={styles.documentDate}>{item.uploadedAt}</Text>
-              {item.status === 'pending_review' && (
+              <Text style={styles.documentDate}>{item.date}</Text>
+              {item.status === 'processing' && (
                 <View style={styles.pendingBadge}>
-                  <Text style={styles.pendingText}>Needs Review</Text>
+                  <Text style={styles.pendingText}>Processing</Text>
                 </View>
               )}
             </View>
@@ -138,7 +108,7 @@ export default function DocumentsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <PageHeader
         title="Documents"
-        subtitle={`${mockDocuments.length} medical documents`}
+        subtitle={`${documents.length} medical documents`}
         rightAction={
           <Pressable
             style={styles.addButton}
