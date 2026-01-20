@@ -25,7 +25,7 @@ export interface ModelStatus {
     state: 'idle' | 'downloading' | 'initializing' | 'ready' | 'error';
     progress: number; // 0-100
     error?: string;
-    modelPath?: string;
+    modelPath?: string
 }
 
 class MedGemmaService {
