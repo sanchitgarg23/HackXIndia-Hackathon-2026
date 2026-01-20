@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "MedAssist",
+    "slug": "medassist",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "scheme": "medassist",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0E1A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.medassist.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0E1A"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.medassist.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MedAssist needs access to your photos to upload medical documents.",
+          "cameraPermission": "MedAssist needs access to your camera to capture medical documents."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "MedAssist needs access to your microphone for voice-based symptom input."
+        }
+      ]
+    ]
+  }
+}
