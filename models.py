@@ -39,3 +39,4 @@ class RiskAssessment(BaseModel):
     risk_score: float # 0.0 to 1.0
     risk_level: str # LOW, MEDIUM, HIGH, CRITICAL
     alert_message: Optional[str] = None
+    suggested_interventions: list[str] = []
