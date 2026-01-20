@@ -17,7 +17,7 @@ interface User {
     relationship: string;
   };
   language: string;
-  isOnboarded: boolean;
+  isOnboarded: boolean
 }
 
 interface UserStore {
