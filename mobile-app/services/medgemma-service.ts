@@ -4,12 +4,19 @@ import * as FileSystem from 'expo-file-system/legacy';
 // Enable mock mode for testing UI without downloading the actual model
 const MOCK_MODE = false;
 
-// MedGemma 4B GGUF model configuration (Using BioMistral-7B as alternative due to gating)
+// LLaVA-v1.5-7B Multimodal Configuration
 const MODEL_CONFIG = {
-    name: 'BioMistral-7B-DARE-Q4_K_M',
-    url: 'https://huggingface.co/MaziyarPanahi/BioMistral-7B-DARE-GGUF/resolve/main/BioMistral-7B-DARE.Q4_K_M.gguf',
-    fileName: 'BioMistral-7B-DARE.Q4_K_M.gguf',
-    size: 4368439488, // ~4.4GB
+    name: 'LLaVA-v1.5-7B-Q4_K',
+    main: {
+        url: 'https://huggingface.co/mys/ggml_llava-v1.5-7b/resolve/main/ggml-model-q4_k.gguf',
+        fileName: 'ggml-model-q4_k.gguf',
+        size: 4081004224, // ~4.1GB
+    },
+    projector: {
+        url: 'https://huggingface.co/mys/ggml_llava-v1.5-7b/resolve/main/mmproj-model-f16.gguf',
+        fileName: 'mmproj-model-f16.gguf',
+        size: 624434336, // ~600MB
+    }
 };
 
 export interface MedicalAnalysis {
@@ -27,6 +34,7 @@ export interface MedicalAnalysis {
 export interface ModelStatus {
     state: 'idle' | 'downloading' | 'initializing' | 'ready' | 'error';
     progress: number; // 0-100
+    currentFile?: string; // which file is downloading
     error?: string;
     modelPath?: string;
     isMockMode?: boolean;
@@ -40,10 +48,12 @@ class MedGemmaService {
         isMockMode: MOCK_MODE,
     };
     private modelPath: string = '';
+    private projectorPath: string = '';
     private downloadCallback?: (status: ModelStatus) => void;
 
     constructor() {
-        this.modelPath = `${FileSystem.documentDirectory}${MODEL_CONFIG.fileName}`;
+        this.modelPath = `${FileSystem.documentDirectory}${MODEL_CONFIG.main.fileName}`;
+        this.projectorPath = `${FileSystem.documentDirectory}${MODEL_CONFIG.projector.fileName}`;
     }
 
     /**
@@ -70,46 +80,26 @@ class MedGemmaService {
     /**
      * Download MedGemma model from Hugging Face if not already cached
      */
+    /**
+     * Download LLaVA model components if not already cached
+     */
     async downloadModel(): Promise<void> {
         try {
-            // Check if model already exists
-            const fileInfo = await FileSystem.getInfoAsync(this.modelPath);
-
-            if (fileInfo.exists) {
-                // Verify file size
-                if (fileInfo.size === MODEL_CONFIG.size) {
-                    console.log('Model already downloaded and verified');
-                    this.updateStatus({ state: 'ready', progress: 100, modelPath: this.modelPath });
-                    return;
-                }
-
-                console.log(`Model corrupted (size mismatch: ${fileInfo.size} != ${MODEL_CONFIG.size}). Re-downloading...`);
-                await FileSystem.deleteAsync(this.modelPath, { idempotent: true });
-            }
-
-            console.log('Downloading MedGemma model...');
-            this.updateStatus({ state: 'downloading', progress: 0 });
-
-            // Download model with progress tracking
-            const downloadResumable = FileSystem.createDownloadResumable(
-                MODEL_CONFIG.url,
+            await this.downloadFile(
+                MODEL_CONFIG.main.url,
                 this.modelPath,
-                {},
-                (downloadProgress) => {
-                    const progress = Math.round(
-                        (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100
-                    );
-                    this.updateStatus({ state: 'downloading', progress });
-                }
+                MODEL_CONFIG.main.size,
+                'Main Model'
             );
 
-            const result = await downloadResumable.downloadAsync();
+            await this.downloadFile(
+                MODEL_CONFIG.projector.url,
+                this.projectorPath,
+                MODEL_CONFIG.projector.size,
+                'Multimodal Projector'
+            );
 
-            if (!result) {
-                throw new Error('Download failed');
-            }
-
-            console.log('Model downloaded successfully');
+            console.log('All model files downloaded successfully');
             this.updateStatus({ state: 'ready', progress: 100, modelPath: this.modelPath });
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -119,8 +109,39 @@ class MedGemmaService {
         }
     }
 
+    private async downloadFile(url: string, path: string, expectedSize: number, label: string): Promise<void> {
+        const fileInfo = await FileSystem.getInfoAsync(path);
+
+        if (fileInfo.exists) {
+            if (fileInfo.size === expectedSize) {
+                console.log(`${label} already downloaded and verified`);
+                return;
+            }
+            console.log(`${label} size mismatch (${fileInfo.size} != ${expectedSize}). Re-downloading...`);
+            await FileSystem.deleteAsync(path, { idempotent: true });
+        }
+
+        console.log(`Downloading ${label}...`);
+        this.updateStatus({ state: 'downloading', progress: 0, currentFile: label });
+
+        const downloadResumable = FileSystem.createDownloadResumable(
+            url,
+            path,
+            {},
+            (downloadProgress) => {
+                const progress = Math.round(
+                    (downloadProgress.totalBytesWritten / downloadProgress.totalBytesExpectedToWrite) * 100
+                );
+                this.updateStatus({ state: 'downloading', progress, currentFile: label });
+            }
+        );
+
+        const result = await downloadResumable.downloadAsync();
+        if (!result) throw new Error(`${label} download failed`);
+    }
+
     /**
-     * Initialize llama.cpp context with the downloaded model
+     * Initialize LLaVA context with main model and multimodal projector
      */
     async initializeModel(): Promise<void> {
         try {
@@ -129,29 +150,57 @@ class MedGemmaService {
                 return;
             }
 
-            // Ensure model is downloaded first
-            const fileInfo = await FileSystem.getInfoAsync(this.modelPath);
-            if (!fileInfo.exists) {
-                throw new Error('Model not found. Please download first.');
+            // Verify files exist
+            const modelInfo = await FileSystem.getInfoAsync(this.modelPath);
+            const projInfo = await FileSystem.getInfoAsync(this.projectorPath);
+
+            if (!modelInfo.exists || !projInfo.exists) {
+                throw new Error('Model files not found. Please download first.');
             }
 
-            console.log('Initializing MedGemma model...');
-            this.updateStatus({ state: 'initializing', progress: 50 });
+            console.log('Initializing LLaVA model...');
+            this.updateStatus({ state: 'initializing', progress: 20, currentFile: 'Main Model' });
 
-            // Prepare path for native module (strip file:// if present)
-            const nativePath = this.modelPath.replace(/^file:\/\//, '');
-            console.log(`Initializing model using native path: ${nativePath}`);
+            // Prepare paths for native module
+            const nativeModelPath = this.modelPath.replace(/^file:\/\//, '');
+            const nativeProjPath = this.projectorPath.replace(/^file:\/\//, '');
 
-            // Initialize llama.rn context
+            console.log(`Loading model: ${nativeModelPath}`);
+
+            // 1. Initialize main context
             this.context = await initLlama({
-                model: nativePath,
-                n_ctx: 2048, // Context window
-                n_gpu_layers: 0, // Use CPU for compatibility (can enable GPU later)
-                use_mlock: false, // Disable mlock to avoid memory locking issues
+                model: nativeModelPath,
+                n_ctx: 2048,
+                n_gpu_layers: 0,
+                use_mlock: false,
                 embedding: false,
             });
 
-            console.log('Model initialized successfully');
+            // 2. Initialize multimodal projector
+            console.log(`Loading projector: ${nativeProjPath}`);
+            this.updateStatus({ state: 'initializing', progress: 60, currentFile: 'Projector' });
+
+            let mmResult = await this.context.initMultimodal({
+                path: nativeProjPath,
+                use_gpu: true // Attempt to use GPU first
+            });
+            console.log('initMultimodal (GPU) result:', mmResult);
+
+            // Retry with CPU if GPU fails
+            if (!mmResult) {
+                console.log('Multimodal init failed with GPU, retrying with CPU...');
+                mmResult = await this.context.initMultimodal({
+                    path: nativeProjPath,
+                    use_gpu: false
+                });
+                console.log('initMultimodal (CPU) result:', mmResult);
+            }
+
+            if (!mmResult) {
+                throw new Error('Failed to initialize multimodal support (projector load failed). check file integrity.');
+            }
+
+            console.log('LLaVA initialized successfully');
             this.updateStatus({ state: 'ready', progress: 100, modelPath: this.modelPath });
         } catch (error) {
             console.error('Model initialization failed:', error);
@@ -162,9 +211,9 @@ class MedGemmaService {
     }
 
     /**
-     * Process medical symptom query and return structured analysis
+     * Process medical query (text + optional image) and return structured analysis
      */
-    async inferSymptoms(query: string): Promise<MedicalAnalysis> {
+    async inferSymptoms(query: string, imagePath?: string): Promise<MedicalAnalysis> {
         if (!this.isReady()) {
             throw new Error('Model not ready. Please initialize first.');
         }
@@ -172,18 +221,22 @@ class MedGemmaService {
         const startTime = Date.now();
 
         try {
-            // MedGemma prompt template for medical symptom analysis
-            const prompt = this.buildMedicalPrompt(query);
+            // Build LLaVA prompt
+            const prompt = this.buildMedicalPrompt(query, !!imagePath);
+            console.log('Running inference with prompt size:', prompt.length);
 
             // Run inference
-            const response = await this.context!.completion({
+            const completionParams = {
                 prompt,
                 n_predict: 512,
-                temperature: 0.3, // Lower temperature for medical accuracy
-                top_p: 0.9,
-                top_k: 40,
-                stop: ['</s>', '[/INST]'],
-            });
+                temperature: 0.2,
+                top_p: 0.95,
+                stop: ['</s>', 'ASSISTANT:', 'USER:'],
+                media_paths: imagePath ? [imagePath.replace(/^file:\/\//, '')] : undefined,
+            };
+            console.log('Calling completion with params:', JSON.stringify(completionParams, null, 2));
+
+            const response = await this.context!.completion(completionParams);
 
             const inferenceTime = Date.now() - startTime;
 
@@ -191,7 +244,14 @@ class MedGemmaService {
             const analysis = this.parseResponse(response.text, inferenceTime);
 
             return analysis;
-        } catch (error) {
+        } catch (error: any) {
+            console.error('Inference error details:', {
+                message: error.message,
+                code: error.code,
+                userInfo: error.userInfo,
+                nativeStack: error.nativeStackAndroid || error.nativeStackIOS,
+                fullError: error
+            });
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
             console.error('Inference failed:', errorMessage);
             throw error;
@@ -199,23 +259,26 @@ class MedGemmaService {
     }
 
     /**
-     * Build medical-focused prompt for MedGemma
+     * Build medical-focused prompt for LLaVA
      */
-    private buildMedicalPrompt(query: string): string {
-        return `<s>[INST] You are a medical AI assistant. Analyze the following patient complaint and provide a structured assessment. DO NOT diagnose or prescribe. Only analyze symptoms.
+    private buildMedicalPrompt(query: string, hasImage: boolean): string {
+        const imageToken = hasImage ? ' <image>\n' : '';
+        const systemInst = "You are a medical AI assistant. Analyze the image (if provided) and the patient's complaint. Provide a structured assessment. DO NOT diagnose. Only analyze visual and textual symptoms.";
 
-Patient complaint: ${query}
+        return `${imageToken}USER: ${systemInst}
+
+Patient Complaint/Query: ${query}
 
 Please provide:
-1. Normalized symptoms (list)
+1. Normalized symptoms (and visual findings if image present)
 2. Duration and severity assessment
 3. Risk factors identified
-4. Any confidence gaps or unclear information
-5. Red-flag signals (if any)
+4. Any confidence gaps
+5. Red-flag signals (CRITICAL)
 6. Recommended urgency level (low/medium/high/emergency)
 
-Keep responses clinical, factual, and structured. [/INST]
-`;
+Keep responses clinical, factual, and structured.
+ASSISTANT:`;
     }
 
     /**

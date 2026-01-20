@@ -10,7 +10,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Network from 'expo-network';
-import { Wifi, WifiOff, Download, CheckCircle, AlertTriangle, Activity } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Wifi, WifiOff, Download, CheckCircle, AlertTriangle, Activity, Image as ImageIcon, X } from 'lucide-react-native';
 import { Header, Button, Card } from '../../components/ui';
 import { TextInput } from '../../components/ui/Input';
 import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
@@ -25,6 +26,7 @@ export default function MedGemmaTestScreen() {
 
     // Inference state
     const [query, setQuery] = useState('');
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isInferring, setIsInferring] = useState(false);
     const [result, setResult] = useState<MedicalAnalysis | null>(null);
     const [error, setError] = useState<string>('');
@@ -68,8 +70,8 @@ export default function MedGemmaTestScreen() {
     };
 
     const handleAnalyze = async () => {
-        if (!query.trim()) {
-            Alert.alert('Error', 'Please enter a symptom description');
+        if (!query.trim() && !selectedImage) {
+            Alert.alert('Error', 'Please enter a symptom description or upload an image');
             return;
         }
 
@@ -83,7 +85,7 @@ export default function MedGemmaTestScreen() {
         setResult(null);
 
         try {
-            const analysis = await medgemmaService.inferSymptoms(query);
+            const analysis = await medgemmaService.inferSymptoms(query, selectedImage || undefined);
             setResult(analysis);
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Inference failed';
@@ -93,6 +95,20 @@ export default function MedGemmaTestScreen() {
             setIsInferring(false);
         }
     };
+
+    const pickImage = async () => {
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: false, // Don't crop medical images
+            quality: 1,
+        });
+
+        if (!result.canceled && result.assets[0].uri) {
+            setSelectedImage(result.assets[0].uri);
+        }
+    };
+
+    const clearImage = () => setSelectedImage(null);
 
     const getSeverityColor = (severity: string) => {
         switch (severity) {
@@ -146,7 +162,10 @@ export default function MedGemmaTestScreen() {
                     </View>
                     <View style={styles.statusTextContainer}>
                         <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
-                        <Text style={styles.statusSubtext}>BioMistral 7B Quantized (Q4_K_M)</Text>
+                        <Text style={styles.statusSubtext}>
+                            LLaVA v1.5 7B (Multimodal)
+                            {modelStatus.currentFile ? ` • ${modelStatus.currentFile}` : ''}
+                        </Text>
                     </View>
                 </View>
 
@@ -176,10 +195,29 @@ export default function MedGemmaTestScreen() {
 
     const renderInputSection = () => (
         <Card variant="elevated" style={styles.inputCard}>
-            <Text style={styles.sectionTitle}>Test Medical Query</Text>
+            <Text style={styles.sectionTitle}>Medical Query</Text>
+
+            {/* Image Upload Area */}
+            <View style={styles.imageUploadContainer}>
+                {selectedImage ? (
+                    <View style={styles.imagePreviewContainer}>
+                        <View style={styles.imagePreview} />
+                        <Text style={styles.imageName}>Image Selected</Text>
+                        <Pressable onPress={clearImage} style={styles.removeImageButton}>
+                            <X size={20} color={Colors.urgency.high} />
+                        </Pressable>
+                    </View>
+                ) : (
+                    <Pressable onPress={pickImage} style={styles.uploadButton}>
+                        <ImageIcon size={24} color={Colors.primary[500]} />
+                        <Text style={styles.uploadText}>Upload X-Ray / Report</Text>
+                    </Pressable>
+                )}
+            </View>
+
             <TextInput
-                label="Symptom Description"
-                placeholder="e.g., I have severe headache with nausea and sensitivity to light for 2 days"
+                label="Symptom Description / Question"
+                placeholder="e.g., What does this X-ray show? I have had a cough for 2 weeks."
                 value={query}
                 onChangeText={setQuery}
                 multiline
@@ -187,7 +225,7 @@ export default function MedGemmaTestScreen() {
                 style={styles.textInput}
             />
             <Button
-                title={isInferring ? 'Analyzing...' : 'Analyze Symptoms'}
+                title={isInferring ? 'Analyzing...' : 'Analyze Case'}
                 onPress={handleAnalyze}
                 disabled={isInferring || !medgemmaService.isReady()}
                 fullWidth
@@ -524,5 +562,49 @@ const styles = StyleSheet.create({
         fontSize: Typography.fontSize.sm,
         color: Colors.dark.textSecondary,
         textAlign: 'center',
+    },
+    imageUploadContainer: {
+        marginBottom: Spacing.base,
+    },
+    uploadButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: Spacing.md,
+        backgroundColor: Colors.dark.surface,
+        borderWidth: 1,
+        borderColor: Colors.dark.border,
+        borderStyle: 'dashed',
+        borderRadius: BorderRadius.md,
+        gap: Spacing.sm,
+    },
+    uploadText: {
+        fontSize: Typography.fontSize.sm,
+        color: Colors.primary[500],
+        fontWeight: '500',
+    },
+    imagePreviewContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: Spacing.sm,
+        backgroundColor: Colors.dark.surface,
+        borderRadius: BorderRadius.md,
+        borderWidth: 1,
+        borderColor: Colors.primary[500],
+    },
+    imagePreview: {
+        width: 40,
+        height: 40,
+        backgroundColor: Colors.dark.background,
+        borderRadius: BorderRadius.sm,
+        marginRight: Spacing.sm,
+    },
+    imageName: {
+        flex: 1,
+        fontSize: Typography.fontSize.sm,
+        color: Colors.dark.text,
+    },
+    removeImageButton: {
+        padding: Spacing.sm,
     },
 });
