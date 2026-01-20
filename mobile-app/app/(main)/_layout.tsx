@@ -72,6 +72,13 @@ export default function MainLayout() {
           href: null,
         }}
       />
+      <Tabs.Screen
+        name="medgemma-test"
+        options={{
+          // Hide from tab bar but accessible via navigation
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }

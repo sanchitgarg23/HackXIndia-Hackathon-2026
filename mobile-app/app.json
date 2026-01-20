@@ -49,7 +49,8 @@
         {
           "microphonePermission": "MedAssist needs access to your microphone for voice-based symptom input."
         }
-      ]
+      ],
+      "llama.rn"
     ]
   }
 }
