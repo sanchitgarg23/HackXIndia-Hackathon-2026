@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Bell,
   Stethoscope,
+  Cpu,
 } from 'lucide-react-native';
 import { PageHeader, Card, Button } from '../../components/ui';
 import { Colors, Typography, Spacing, BorderRadius, getHealthScoreColor } from '../../constants/theme';
@@ -31,7 +32,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user } = useUserStore();
   const { healthScore, diagnoses, documents, medications, activeConditions } = useHealthStore();
-  
+
   const healthColor = getHealthScoreColor(healthScore);
   const greeting = getGreeting();
 
@@ -122,10 +123,10 @@ export default function HomeScreen() {
               onPress={() => router.push('/(main)/appointments/book')}
             />
             <QuickActionCard
-              icon={<AlertCircle size={24} color={Colors.error} />}
-              label="Emergency"
-              color={Colors.error}
-              onPress={() => alert('Emergency SOS triggered! Notifying contacts...')}
+              icon={<Cpu size={24} color="#10B981" />}
+              label="Test AI"
+              color="#10B981"
+              onPress={() => router.push('/(main)/medgemma-test')}
             />
           </View>
         </View>
@@ -163,7 +164,7 @@ export default function HomeScreen() {
               <Text style={styles.seeAll}>See All</Text>
             </Pressable>
           </View>
-          
+
           <Card variant="elevated" style={styles.activityCard}>
             <ActivityItem
               icon={<Mic size={18} color={Colors.primary[500]} />}

@@ -11,10 +11,10 @@ import {
 import { useRouter } from 'expo-router';
 import * as Network from 'expo-network';
 import { Wifi, WifiOff, Download, CheckCircle, AlertTriangle, Activity } from 'lucide-react-native';
-import { Header, Button, Card } from '../../../components/ui';
-import { TextInput } from '../../../components/ui/Input';
-import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
-import { medgemmaService, ModelStatus, MedicalAnalysis } from '../../../services/medgemma-service';
+import { Header, Button, Card } from '../../components/ui';
+import { TextInput } from '../../components/ui/Input';
+import { Colors, Typography, Spacing, BorderRadius } from '../../constants/theme';
+import { medgemmaService, ModelStatus, MedicalAnalysis } from '../../services/medgemma-service';
 
 export default function MedGemmaTestScreen() {
     const router = useRouter();

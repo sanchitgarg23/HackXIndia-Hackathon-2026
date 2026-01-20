@@ -1,5 +1,8 @@
 import { initLlama, LlamaContext } from 'llama.rn';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+
+// Enable mock mode for testing UI without downloading the actual model
+const MOCK_MODE = true;
 
 // MedGemma 4B GGUF model configuration
 const MODEL_CONFIG = {
@@ -25,7 +28,8 @@ export interface ModelStatus {
     state: 'idle' | 'downloading' | 'initializing' | 'ready' | 'error';
     progress: number; // 0-100
     error?: string;
-    modelPath?: string
+    modelPath?: string;
+    isMockMode?: boolean;
 }
 
 class MedGemmaService {
@@ -33,6 +37,7 @@ class MedGemmaService {
     private status: ModelStatus = {
         state: 'idle',
         progress: 0,
+        isMockMode: MOCK_MODE,
     };
     private modelPath: string = '';
     private downloadCallback?: (status: ModelStatus) => void;
@@ -66,6 +71,18 @@ class MedGemmaService {
      * Download MedGemma model from Hugging Face if not already cached
      */
     async downloadModel(): Promise<void> {
+        if (this.status.isMockMode) {
+            console.log('Mock Mode: Skipping download');
+            // Simulate download delay
+            this.updateStatus({ state: 'downloading', progress: 0 });
+            for (let i = 0; i <= 100; i += 20) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                this.updateStatus({ state: 'downloading', progress: i });
+            }
+            this.updateStatus({ state: 'ready', progress: 100, modelPath: 'mock-model-path' });
+            return;
+        }
+
         try {
             // Check if model already exists
             const fileInfo = await FileSystem.getInfoAsync(this.modelPath);
@@ -112,6 +129,15 @@ class MedGemmaService {
      * Initialize llama.cpp context with the downloaded model
      */
     async initializeModel(): Promise<void> {
+        if (this.status.isMockMode) {
+            console.log('Mock Mode: Skipping initialization');
+            // Simulate init delay
+            this.updateStatus({ state: 'initializing', progress: 0 });
+            await new Promise(resolve => setTimeout(resolve, 1500));
+            this.updateStatus({ state: 'ready', progress: 100, modelPath: 'mock-model-path' });
+            return;
+        }
+
         try {
             if (this.context) {
                 console.log('Model already initialized');
@@ -150,11 +176,27 @@ class MedGemmaService {
      * Process medical symptom query and return structured analysis
      */
     async inferSymptoms(query: string): Promise<MedicalAnalysis> {
-        if (!this.isReady()) {
+        if (!this.isReady() && !this.status.isMockMode) {
             throw new Error('Model not ready. Please initialize first.');
         }
 
         const startTime = Date.now();
+
+        if (this.status.isMockMode) {
+            console.log('Mock Mode: Inferring');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return {
+                normalizedSymptoms: ['Headache', 'Nausea', 'Photophobia'],
+                duration: '2 days',
+                severity: 'medium',
+                riskFactors: ['Potential Migraine'],
+                confidenceGaps: ['History of migraines?'],
+                redFlags: [],
+                urgencyScore: 'medium',
+                rawResponse: 'Mock response data',
+                inferenceTime: 2000,
+            };
+        }
 
         try {
             // MedGemma prompt template for medical symptom analysis

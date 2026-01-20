@@ -380,3 +380,5 @@ Mobile and web both essential, not decorative
 Strong system narrative
 
 Feels deployable, not hypothetical
+
+export JAVA_HOME="/opt/homebrew/opt/openjdk@17" && export ANDROID_HOME="$HOME/Library/Android/sdk" && npx expo run:android

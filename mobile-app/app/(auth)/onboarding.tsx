@@ -60,7 +60,6 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
-  const scrollX = useSharedValue(0);
 
   const handleNext = () => {
     if (currentIndex < onboardingData.length - 1) {
