@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View,
   StyleSheet,
+  StyleProp,
   ViewStyle,
   Pressable,
 } from 'react-native';
@@ -13,7 +14,7 @@ interface CardProps {
   children: React.ReactNode;
   variant?: 'default' | 'elevated' | 'glass' | 'gradient' | 'outlined';
   onPress?: () => void;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   padding?: keyof typeof Spacing | number;
 }
 

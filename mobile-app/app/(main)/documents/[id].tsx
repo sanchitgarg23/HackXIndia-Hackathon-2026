@@ -1,0 +1,288 @@
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  FileText,
+  Calendar,
+  CheckCircle,
+  AlertTriangle,
+  Download,
+  Share2,
+  Trash2,
+} from 'lucide-react-native';
+import { Header, Card, Button } from '../../../components/ui';
+import { Colors, Typography, Spacing, BorderRadius } from '../../../constants/theme';
+
+// Mock document data
+const mockDocument = {
+  id: '1',
+  type: 'lab_report',
+  fileName: 'Blood Test Report - Complete CBC',
+  uploadedAt: 'January 15, 2024',
+  analyzedAt: 'January 15, 2024',
+  summary: 'Complete blood count test results. All parameters are within normal range.',
+  status: 'analyzed',
+  extractedData: [
+    { label: 'Hemoglobin', value: '14.2 g/dL', status: 'normal', range: '13.5-17.5' },
+    { label: 'WBC Count', value: '7,500 /µL', status: 'normal', range: '4,500-11,000' },
+    { label: 'Platelet Count', value: '250,000 /µL', status: 'normal', range: '150,000-400,000' },
+    { label: 'RBC Count', value: '4.8 M/µL', status: 'normal', range: '4.5-5.5' },
+  ],
+  aiInsights: [
+    'All blood parameters are within the healthy reference range.',
+    'Hemoglobin levels indicate good oxygen-carrying capacity.',
+    'White blood cell count suggests no active infection.',
+  ],
+};
+
+export default function DocumentDetailScreen() {
+  const { id } = useLocalSearchParams();
+  const router = useRouter();
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'normal':
+        return Colors.success;
+      case 'high':
+        return Colors.error;
+      case 'low':
+        return Colors.warning;
+      default:
+        return Colors.dark.textMuted;
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Header title="Document Details" showBack />
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Document Header */}
+        <Card variant="elevated" style={styles.headerCard}>
+          <View style={styles.docIcon}>
+            <FileText size={32} color={Colors.primary[500]} />
+          </View>
+          <Text style={styles.docName}>{mockDocument.fileName}</Text>
+          <View style={styles.docMeta}>
+            <Calendar size={14} color={Colors.dark.textMuted} />
+            <Text style={styles.docDate}>Uploaded on {mockDocument.uploadedAt}</Text>
+          </View>
+          <View style={styles.statusBadge}>
+            <CheckCircle size={14} color={Colors.success} />
+            <Text style={styles.statusText}>Analyzed</Text>
+          </View>
+        </Card>
+
+        {/* AI Summary */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🤖 AI Summary</Text>
+          <Card variant="gradient" style={styles.summaryCard}>
+            <Text style={styles.summaryText}>{mockDocument.summary}</Text>
+          </Card>
+        </View>
+
+        {/* Extracted Data */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Extracted Values</Text>
+          <Card variant="elevated" style={styles.dataCard}>
+            {mockDocument.extractedData.map((item, index) => (
+              <React.Fragment key={item.label}>
+                <View style={styles.dataRow}>
+                  <View style={styles.dataInfo}>
+                    <Text style={styles.dataLabel}>{item.label}</Text>
+                    <Text style={styles.dataRange}>Ref: {item.range}</Text>
+                  </View>
+                  <View style={styles.dataValue}>
+                    <Text style={[styles.valueText, { color: getStatusColor(item.status) }]}>
+                      {item.value}
+                    </Text>
+                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(item.status) }]} />
+                  </View>
+                </View>
+                {index < mockDocument.extractedData.length - 1 && (
+                  <View style={styles.divider} />
+                )}
+              </React.Fragment>
+            ))}
+          </Card>
+        </View>
+
+        {/* AI Insights */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Key Insights</Text>
+          <Card variant="elevated" style={styles.insightsCard}>
+            {mockDocument.aiInsights.map((insight, index) => (
+              <View key={index} style={styles.insightRow}>
+                <CheckCircle size={16} color={Colors.success} />
+                <Text style={styles.insightText}>{insight}</Text>
+              </View>
+            ))}
+          </Card>
+        </View>
+
+        {/* Actions */}
+        <View style={styles.actionsSection}>
+          <Button
+            title="Download Original"
+            variant="outline"
+            icon={<Download size={18} color={Colors.primary[500]} />}
+            onPress={() => {}}
+            fullWidth
+            style={styles.actionButton}
+          />
+          <Button
+            title="Share with Doctor"
+            variant="secondary"
+            icon={<Share2 size={18} color={Colors.dark.text} />}
+            onPress={() => {}}
+            fullWidth
+            style={styles.actionButton}
+          />
+        </View>
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.dark.background,
+  },
+  scrollContent: {
+    paddingHorizontal: Spacing.xl,
+    paddingBottom: 40,
+  },
+  headerCard: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+    marginBottom: Spacing.xl,
+  },
+  docIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: BorderRadius.xl,
+    backgroundColor: Colors.primary[500] + '20',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.base,
+  },
+  docName: {
+    fontSize: Typography.fontSize.lg,
+    fontWeight: '600',
+    color: Colors.dark.text,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
+  docMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  docDate: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.dark.textMuted,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    backgroundColor: Colors.success + '20',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: BorderRadius.full,
+  },
+  statusText: {
+    fontSize: Typography.fontSize.sm,
+    color: Colors.success,
+    fontWeight: '500',
+  },
+  section: {
+    marginBottom: Spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: '600',
+    color: Colors.dark.text,
+    marginBottom: Spacing.sm,
+  },
+  summaryCard: {
+    padding: Spacing.base,
+  },
+  summaryText: {
+    fontSize: Typography.fontSize.base,
+    color: Colors.dark.text,
+    lineHeight: Typography.fontSize.base * 1.5,
+  },
+  dataCard: {
+    padding: Spacing.base,
+  },
+  dataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: Spacing.sm,
+  },
+  dataInfo: {
+    flex: 1,
+  },
+  dataLabel: {
+    fontSize: Typography.fontSize.base,
+    color: Colors.dark.text,
+    fontWeight: '500',
+  },
+  dataRange: {
+    fontSize: Typography.fontSize.xs,
+    color: Colors.dark.textMuted,
+    marginTop: 2,
+  },
+  dataValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  valueText: {
+    fontSize: Typography.fontSize.base,
+    fontWeight: '600',
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: Colors.dark.border,
+  },
+  insightsCard: {
+    padding: Spacing.base,
+  },
+  insightRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  insightText: {
+    flex: 1,
+    fontSize: Typography.fontSize.sm,
+    color: Colors.dark.textSecondary,
+    lineHeight: Typography.fontSize.sm * 1.5,
+  },
+  actionsSection: {
+    gap: Spacing.sm,
+  },
+  actionButton: {
+    marginBottom: 0,
+  },
+  bottomSpacing: {
+    height: 40,
+  },
+});

@@ -76,7 +76,7 @@ export const Button: React.FC<ButtonProps> = ({
                 style={[
                   styles.text,
                   { fontSize: textSizes[size] },
-                  icon && styles.textWithIcon,
+                  icon ? styles.textWithIcon : undefined,
                   textStyle,
                 ]}
               >
@@ -135,7 +135,7 @@ export const Button: React.FC<ButtonProps> = ({
               styles.text,
               { fontSize: textSizes[size] },
               variantStyles[variant].text,
-              icon && styles.textWithIcon,
+              icon ? styles.textWithIcon : undefined,
               textStyle,
             ]}
           >

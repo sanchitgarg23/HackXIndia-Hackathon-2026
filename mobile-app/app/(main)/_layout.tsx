@@ -65,6 +65,13 @@ export default function MainLayout() {
           tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
         }}
       />
+      <Tabs.Screen
+        name="health-dashboard"
+        options={{
+          // Hide from tab bar
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
